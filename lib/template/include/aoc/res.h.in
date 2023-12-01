@@ -1,0 +1,6 @@
+#pragma once
+
+namespace aoc
+{
+    constexpr inline const char* const REALTIVE_RESOURCE_DIRECTORY = "@RELATIVE_RESOURCE_DIR@";
+}
