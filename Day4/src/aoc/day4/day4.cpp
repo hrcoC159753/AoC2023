@@ -12,11 +12,26 @@
 #include <concepts>
 #include <sstream>
 #include <numeric>
-
+#include <tuple>
+#include <thread>
+#include <type_traits>
 #include <iostream>
 
 namespace
 {
+
+template<typename ... Ts>
+inline std::ostream& operator<<(std::ostream& os, const std::tuple<Ts...>& tuple)
+{
+    os << '{';
+    [&]<std::size_t ... kIndexes>(std::index_sequence<kIndexes...>)
+    {
+        ((os << std::get<kIndexes>(tuple) << ", "), ...);
+    }(std::make_index_sequence<sizeof...(Ts)>{});
+
+    os << '}';
+    return os;
+}
 
 struct Card
 {
@@ -238,7 +253,43 @@ namespace aoc::day4::part2
 
 std::size_t solve(const std::string_view text) noexcept
 {
-    return 2;
+    namespace v = std::views;
+    namespace r = std::ranges;
+
+    std::vector<Card> initCards = parseToCards(text);
+
+    using CardInfo = std::tuple<std::size_t, std::size_t>;
+    auto cardInfosView = initCards
+        | v::transform(
+            [](const Card& card)
+            { 
+                return std::pair<const Card&, std::size_t>(card, countSameElements(card.m_winningNumbers, card.m_numbers));
+            }
+        )
+        | v::transform(
+            [](const auto& p)
+            {
+                const auto&[card, countOfSameElements] = p;
+                return CardInfo{card.m_id, countOfSameElements};
+            }
+        );
+    
+    const std::vector initCardInfos(r::begin(cardInfosView), r::end(cardInfosView));
+    std::vector numberOfCardsPerId(initCardInfos.size(), std::size_t{0u});
+
+    for(auto&& cardInfo : initCardInfos)
+    {
+        const auto& [cardId, numberOfSameElements] = cardInfo;
+        
+        const auto& numberOfCardsForCurrentId = ++numberOfCardsPerId[cardId-1];
+
+        for(std::size_t id{cardId + 1}; id <= cardId + numberOfSameElements; ++id)
+        {
+            numberOfCardsPerId[id-1] += numberOfCardsForCurrentId;
+        }
+    }
+    
+    return std::accumulate(r::begin(numberOfCardsPerId), r::end(numberOfCardsPerId), std::size_t{0u});
 }
 
 }

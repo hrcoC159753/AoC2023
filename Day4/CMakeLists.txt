@@ -27,13 +27,17 @@ target_link_libraries(day4_part1
     PRIVATE
         day4
 )
+add_custom_target(
+    day4_part1_resources
+)
+add_dependencies(day4_part1 day4_part1_resources)
 add_custom_command(
-    TARGET day4_part1
+    TARGET day4_part1_resources
     POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/res/input_part1.txt ${CMAKE_CURRENT_BINARY_DIR}/input_part1.txt
 )
 add_custom_command(
-    TARGET day4_part1
+    TARGET day4_part1_resources
     POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/res/initial_input_part1.txt ${CMAKE_CURRENT_BINARY_DIR}/initial_input_part1.txt
 )
@@ -47,13 +51,17 @@ target_link_libraries(day4_part2
     PRIVATE
         day4
 )
+add_custom_target(
+    day4_part2_resources
+)
+add_dependencies(day4_part2 day4_part2_resources)
 add_custom_command(
-    TARGET day4_part2
+    TARGET day4_part2_resources
     POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/res/input_part2.txt ${CMAKE_CURRENT_BINARY_DIR}/input_part2.txt
 )
 add_custom_command(
-    TARGET day4_part2
+    TARGET day4_part2_resources
     POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/res/initial_input_part2.txt ${CMAKE_CURRENT_BINARY_DIR}/initial_input_part2.txt
 )
