@@ -32,6 +32,11 @@ add_custom_command(
     POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/res/input_part1.txt ${CMAKE_CURRENT_BINARY_DIR}/input_part1.txt
 )
+add_custom_command(
+    TARGET day4_part1
+    POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/res/initial_input_part1.txt ${CMAKE_CURRENT_BINARY_DIR}/initial_input_part1.txt
+)
 
 add_executable(day4_part2)
 target_sources(day4_part2
@@ -46,4 +51,9 @@ add_custom_command(
     TARGET day4_part2
     POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/res/input_part2.txt ${CMAKE_CURRENT_BINARY_DIR}/input_part2.txt
+)
+add_custom_command(
+    TARGET day4_part2
+    POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/res/initial_input_part2.txt ${CMAKE_CURRENT_BINARY_DIR}/initial_input_part2.txt
 )
