@@ -32,5 +32,5 @@ int main()
     constexpr static std::string_view FILE_NAME = "input1.txt";
 
     example(INITIAL_FILE_NAME);
-    // example(FILE_NAME);
+    example(FILE_NAME);
 }

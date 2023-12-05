@@ -26,7 +26,7 @@ target_link_libraries(day5
 )
 
 add_subdirectory(part1)
-# add_subdirectory(part2)
+add_subdirectory(part2)
 
 add_subdirectory(test)
 

@@ -13,10 +13,14 @@
 #include <tuple>
 #include <numeric>
 #include <algorithm>
+#include <functional>
+#include <numeric>
+
+using cpp_utils::operator<<;
+
 
 namespace 
 {
-using cpp_utils::operator<<;
 using Mapping = aoc::day5::Mapping;
 using MappingInfo = aoc::day5::MappingInfo;
 using Seeds = aoc::day5::Seeds;
@@ -147,6 +151,47 @@ Data parse(const std::string_view text) noexcept
     };
 }
 
+constexpr static auto mappingToMapper = [](const std::reference_wrapper<const Mapping> mappingRef) noexcept
+{
+    return [&mappingRef](const std::size_t number) -> std::optional<std::size_t> {
+        const auto& mapping = mappingRef.get();
+        if(number >= mapping.m_sourceNumber && number <= mapping.m_sourceNumber + mapping.m_size - 1)
+        {
+            return std::optional<std::size_t>{mapping.m_destinationNumber + (number - mapping.m_sourceNumber)};
+        }
+
+        return std::nullopt;
+    };
+};
+
+constexpr static auto mappingInfoToMapper = [](const std::reference_wrapper<const MappingInfo> mappingInfoRef) noexcept
+{
+    return [&mappingInfoRef](const std::size_t number) noexcept
+    {
+        using FunctionType = std::function<std::optional<std::size_t>(std::size_t)>;
+        const MappingInfo& mappingInfo = mappingInfoRef.get();
+        const static std::vector<FunctionType> functions = [&]{
+            std::vector<FunctionType> r{};
+            for(const Mapping& mapping : mappingInfo.m_mappings)
+            {
+                r.emplace_back(mappingToMapper(std::cref(mapping)));
+            }
+            return r;
+        }();
+
+        for(const FunctionType& function : functions)
+        {
+            const std::optional<std::size_t> optResult = function(number);
+            if(optResult.has_value())
+            {
+                return *optResult;
+            }
+        }
+
+        return number;
+    };
+};
+
 }
 
 namespace aoc::day5::part1
@@ -154,88 +199,48 @@ namespace aoc::day5::part1
 
 std::size_t solve(const std::string_view text) noexcept
 {
-    using std::string_view_literals::operator""sv;
     const auto&[seeds, mappingInfos] = parse(text);
 
-    const auto getMappingInfoFor = [&](const std::string_view source) -> const MappingInfo&
-    {
-        const auto foundMappingInfo = std::ranges::find(mappingInfos, source, &MappingInfo::m_source);
-        assert(foundMappingInfo != std::ranges::end(mappingInfos));
+    using cpp_utils::operator<<;
 
-        return *foundMappingInfo;
-        
+    const auto findMappingInfoForSource = [&mappingInfos](const std::string_view source) noexcept
+    {
+        return *std::ranges::find(mappingInfos, source, &MappingInfo::m_source);
     };
 
-    MappingInfo mappingInfo = getMappingInfoFor("seed");
-    while(mappingInfo.m_destination != "location")
+    const auto calculateMappingForMappingInfo = [](const std::size_t number, const MappingInfo& mappingInfo) noexcept
     {
-        std::vector<Mapping> newMappings{};
-
-        const MappingInfo& destinationInfo = getMappingInfoFor(mappingInfo.m_destination);
-        for(const Mapping& infoMapping : mappingInfo.m_mappings)
+        for(const Mapping& mapping : mappingInfo.m_mappings)
         {
-    
-            std::vector<Mapping> restMappings{};
-            for(const Mapping& destinationInfoMapping : destinationInfo.m_mappings)
+            if(number >= mapping.m_sourceNumber && number <= mapping.m_sourceNumber + mapping.m_size - 1)
             {
-                const auto&[optNewMapping, optOldMapping] = combineMappings(infoMapping, destinationInfoMapping);
-
-                if(optNewMapping.has_value())
-                {
-                    newMappings.push_back(*optNewMapping);
-                }
-
-                for(const Mapping& restMapping : restMappings)
-                {
-                    const auto&[optNewRestMapping, optOldRestMapping] = combineMappings(infoMapping, destinationInfoMapping);
-                    if(optNewRestMapping.has_value())
-                    {
-                        newMappings.push_back(*optNewRestMapping);
-                    }
-
-                    if(optOldRestMapping.has_value())
-                    {
-                        restMappings.push_back(*optOldRestMapping);
-                    }
-                }
-
-                if(optOldMapping.has_value())
-                {
-                    restMappings.push_back(*optNewMapping);
-                }
+                return mapping.m_destinationNumber + (number - mapping.m_sourceNumber);
             }
         }
 
-        mappingInfo = MappingInfo{
-            "seed",
-            destinationInfo.m_destination,
-            std::move(newMappings)
-        };
-    }
+        return number;
+    };
 
-    assert(mappingInfo.m_destination == "location");
+    const auto finalFunction = [&](const std::size_t number)
+    {
+        auto mappingInfo = findMappingInfoForSource("seed");
 
-    auto locationsView = seeds.m_seedNumbers
-        | v::transform(
-            [&](const std::size_t seed)
-            {
-                const auto foundMappingIter = std::ranges::find_if(
-                    mappingInfo.m_mappings, 
-                    [&](const Mapping& m) { return m.m_sourceNumber <= seed and m.m_sourceNumber + m.m_size - 1 >= seed; }
-                );
+        std::size_t numberCopy = number;
+        while(mappingInfo.m_destination != "location")
+        {
+            numberCopy = calculateMappingForMappingInfo(numberCopy, mappingInfo);
+            mappingInfo = findMappingInfoForSource(mappingInfo.m_destination);
+        }
 
-                if(foundMappingIter == std::ranges::end(mappingInfo.m_mappings))
-                {
-                    return seed;
-                }
+        numberCopy = calculateMappingForMappingInfo(numberCopy, mappingInfo);
 
-                const auto& foundMapping = *foundMappingIter;
+        return numberCopy;
+    };
 
-                return foundMapping.m_destinationNumber + seed - foundMapping.m_sourceNumber;
-            }
-        );
+    auto locationView = seeds.m_seedNumbers
+        | v::transform(finalFunction);
 
-    return std::ranges::min(locationsView);
+    return std::ranges::min(locationView);
 }
 
 }
@@ -245,7 +250,81 @@ namespace aoc::day5::part2
 
 std::size_t solve(const std::string_view text) noexcept
 {
-    return 2;
+
+    const auto&[seeds, mappingInfos] = parse(text);
+
+    using cpp_utils::operator<<;
+
+    const auto findMappingInfoForSource = [&mappingInfos](const std::string_view source) noexcept
+    {
+        return *std::ranges::find(mappingInfos, source, &MappingInfo::m_source);
+    };
+
+    const auto calculateMappingForMappingInfo = [](const std::size_t number, const MappingInfo& mappingInfo) noexcept
+    {
+        for(const Mapping& mapping : mappingInfo.m_mappings)
+        {
+            if(number >= mapping.m_sourceNumber && number <= mapping.m_sourceNumber + mapping.m_size - 1)
+            {
+                return mapping.m_destinationNumber + (number - mapping.m_sourceNumber);
+            }
+        }
+
+        return number;
+    };
+
+    const auto finalFunction = [&](const std::size_t number)
+    {
+        auto mappingInfo = findMappingInfoForSource("seed");
+
+        std::size_t numberCopy = number;
+        while(mappingInfo.m_destination != "location")
+        {
+            numberCopy = calculateMappingForMappingInfo(numberCopy, mappingInfo);
+            mappingInfo = findMappingInfoForSource(mappingInfo.m_destination);
+        }
+
+        numberCopy = calculateMappingForMappingInfo(numberCopy, mappingInfo);
+
+        return numberCopy;
+    };
+
+    const auto toMinimalValueOfRange = [&](const std::tuple<std::size_t, std::size_t>& range) noexcept
+    {
+        const auto&[rangeBegin, rangeSize] = range;
+        std::cout << std::string_view{"Range: {"} << rangeBegin << std::string_view{", "} << rangeSize << std::string_view{"}"} << std::endl;
+        std::size_t minNumber = std::numeric_limits<std::size_t>::max(); 
+        for(std::size_t num = rangeBegin; num < rangeBegin + rangeSize; ++num)
+        {
+            const auto resultNum = finalFunction(num);
+            if(resultNum < minNumber)
+            {
+                minNumber = resultNum;
+            }
+
+            if(num % 100'000 == 0)
+            {
+                std::cout << std::string_view{"num: "} << num << std::endl;
+            }
+        }
+
+        return minNumber;
+    };
+
+    std::vector<std::tuple<std::size_t, std::size_t>> ranges{};
+    assert(seeds.m_seedNumbers.size() % 2 == 0);
+    for(std::size_t i = 0; i < seeds.m_seedNumbers.size(); i += 2)
+    {
+        const auto& rangeBegin = seeds.m_seedNumbers[i];
+        const auto& rangeSize = seeds.m_seedNumbers[i + 1];
+
+        ranges.emplace_back(std::size_t{rangeBegin}, std::size_t{rangeSize});
+    }
+
+    auto locationView = ranges
+        | v::transform(toMinimalValueOfRange);
+
+    return std::ranges::min(locationView);
 }
 
 }
