@@ -21,7 +21,7 @@ void example(std::string_view fileName) noexcept
 {
     const auto text = getFileContents(fileName);
 
-    const auto solution = aoc::day5::part2::solve(text);
+    const auto solution = aoc::day5::part2::solve2(text);
 
     std::cout << "Solution for '" << fileName << "' is " << solution << std::endl;
 }
@@ -32,5 +32,5 @@ int main()
     constexpr static std::string_view FILE_NAME = "input2.txt";
 
     example(INITIAL_FILE_NAME);
-    example(FILE_NAME);
+    // example(FILE_NAME);
 }

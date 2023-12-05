@@ -151,47 +151,6 @@ Data parse(const std::string_view text) noexcept
     };
 }
 
-constexpr static auto mappingToMapper = [](const std::reference_wrapper<const Mapping> mappingRef) noexcept
-{
-    return [&mappingRef](const std::size_t number) -> std::optional<std::size_t> {
-        const auto& mapping = mappingRef.get();
-        if(number >= mapping.m_sourceNumber && number <= mapping.m_sourceNumber + mapping.m_size - 1)
-        {
-            return std::optional<std::size_t>{mapping.m_destinationNumber + (number - mapping.m_sourceNumber)};
-        }
-
-        return std::nullopt;
-    };
-};
-
-constexpr static auto mappingInfoToMapper = [](const std::reference_wrapper<const MappingInfo> mappingInfoRef) noexcept
-{
-    return [&mappingInfoRef](const std::size_t number) noexcept
-    {
-        using FunctionType = std::function<std::optional<std::size_t>(std::size_t)>;
-        const MappingInfo& mappingInfo = mappingInfoRef.get();
-        const static std::vector<FunctionType> functions = [&]{
-            std::vector<FunctionType> r{};
-            for(const Mapping& mapping : mappingInfo.m_mappings)
-            {
-                r.emplace_back(mappingToMapper(std::cref(mapping)));
-            }
-            return r;
-        }();
-
-        for(const FunctionType& function : functions)
-        {
-            const std::optional<std::size_t> optResult = function(number);
-            if(optResult.has_value())
-            {
-                return *optResult;
-            }
-        }
-
-        return number;
-    };
-};
-
 }
 
 namespace aoc::day5::part1
@@ -292,7 +251,6 @@ std::size_t solve(const std::string_view text) noexcept
     const auto toMinimalValueOfRange = [&](const std::tuple<std::size_t, std::size_t>& range) noexcept
     {
         const auto&[rangeBegin, rangeSize] = range;
-        std::cout << std::string_view{"Range: {"} << rangeBegin << std::string_view{", "} << rangeSize << std::string_view{"}"} << std::endl;
         std::size_t minNumber = std::numeric_limits<std::size_t>::max(); 
         for(std::size_t num = rangeBegin; num < rangeBegin + rangeSize; ++num)
         {
@@ -325,6 +283,73 @@ std::size_t solve(const std::string_view text) noexcept
         | v::transform(toMinimalValueOfRange);
 
     return std::ranges::min(locationView);
+}
+
+std::size_t solve2(const std::string_view text) noexcept
+{
+    const auto&[seeds, mappingInfos] = parse(text);
+
+    constexpr static auto calculateMappingForMappingInfo = [](const std::size_t number, const MappingInfo& mappingInfo) noexcept
+    {
+        for(const Mapping& mapping : mappingInfo.m_mappings)
+        {
+            if(number >= mapping.m_sourceNumber && number <= mapping.m_sourceNumber + mapping.m_size - 1)
+            {
+                return mapping.m_destinationNumber + (number - mapping.m_sourceNumber);
+            }
+        }
+
+        return number;
+    };
+
+    const auto findMappingInfoForSource = [&mappingInfos](const std::string_view source) noexcept -> const MappingInfo&
+    {
+        return *std::ranges::find(mappingInfos, source, &MappingInfo::m_source);
+    };
+
+    const MappingInfo seedToLocationMappingInfo = [&]
+    {
+        MappingInfo current = findMappingInfoForSource("seed");
+        
+        while(current.m_destination != "location")
+        {
+            const MappingInfo& newMappingInfo = findMappingInfoForSource(current.m_destination);
+
+            current = compose(current, newMappingInfo);
+        }
+
+        return current;
+    }();
+
+    using RangeType = std::tuple<std::size_t, std::size_t>;
+
+    const auto rangeToMinimumElement = [&](const RangeType& range) noexcept
+    {
+        const auto& [rangeBegin, rangeSize] = range;
+        std::size_t minElement = std::numeric_limits<std::size_t>::max();
+        for(std::size_t n = rangeBegin; n < rangeBegin + rangeSize; ++n)
+        {
+            const std::size_t locationNumber = calculateMappingForMappingInfo(n, seedToLocationMappingInfo);
+            if(locationNumber < minElement)
+            {
+                minElement = locationNumber;
+            }
+        }
+        return minElement;
+    };
+
+    std::vector<RangeType> ranges{};
+    for(std::size_t i = 0; i < seeds.m_seedNumbers.size(); i += 2)
+    {
+        const std::size_t& rangeBegin = seeds.m_seedNumbers[i];
+        const std::size_t& rangeSize = seeds.m_seedNumbers[i + 1];
+        ranges.emplace_back(rangeBegin, rangeSize);
+    }
+
+    auto minimumLocationsView = ranges
+        | v::transform(rangeToMinimumElement);
+
+    return std::ranges::min(minimumLocationsView);
 }
 
 }

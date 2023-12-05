@@ -6,6 +6,8 @@
 #include <string>
 #include <optional>
 #include <compare>
+#include <cassert>
+#include <queue>
 
 #include "cpp_utils/cpp_utils.h"
 
@@ -20,6 +22,7 @@ std::size_t solve(std::string_view text) noexcept;
 namespace part2
 {
 std::size_t solve(const std::string_view text) noexcept;
+std::size_t solve2(const std::string_view text) noexcept;
 }
 
 struct Seeds
@@ -55,6 +58,15 @@ constexpr inline bool doMappingsIntersect(const Mapping& m1, const Mapping& m2) 
     const bool conditionTwo = m1db > m2se;
 
     return !(conditionOne || conditionTwo);
+}
+
+constexpr inline bool doRangesIntersect(
+    const std::size_t firstRangeBegin,
+    const std::size_t firstRangeEnd,
+    const std::size_t secondRangeBegin,
+    const std::size_t secondRangeEnd) noexcept
+{
+    return !(firstRangeEnd < secondRangeBegin || firstRangeBegin > secondRangeEnd);
 }
 
 constexpr inline std::pair<std::optional<Mapping>, std::optional<Mapping>> combineMappings(const Mapping& m1, const Mapping& m2) noexcept
@@ -107,6 +119,121 @@ constexpr inline std::pair<std::optional<Mapping>, std::optional<Mapping>> combi
     }
 }
 
+constexpr inline std::optional<Mapping> compose(const Mapping& m1, const Mapping& m2) noexcept
+{
+    const auto& m1sb = m1.m_sourceNumber;
+    const auto m1se = m1.m_sourceNumber + m1.m_size - 1;
+    const auto& m1db = m1.m_destinationNumber;
+    const auto m1de = m1.m_destinationNumber + m1.m_size - 1;
+
+    const auto& m2sb = m2.m_sourceNumber;
+    const auto m2se = m2.m_sourceNumber + m2.m_size - 1;
+    const auto& m2db = m2.m_destinationNumber;
+    const auto m2de = m2.m_destinationNumber + m2.m_size - 1;
+
+    if(!doRangesIntersect(m1db, m1de, m2sb, m2se))
+    {
+        return std::nullopt;
+    }
+
+    /*              m1db-----------------------------------m1de             */
+    /*   m2sb--------------------------------------------------------m2se   */
+    if(m1db >= m2sb && m1de <= m2se)
+    {
+        const std::size_t offsetFromBeginning = (m1db - m2sb);
+        return std::optional{ Mapping{m2db + offsetFromBeginning, m1sb, m1de - m1db + 1} };
+    } 
+    /*  m1db-------------------------------------m1de           */
+    /*           m2sb-------------------------------------m2se  */
+    else if(m1db < m2sb && m1de < m2se)
+    {
+        const std::size_t offsetFromBeginning = (m2sb - m1db);
+        return std::optional{ Mapping{m2db, m1sb + offsetFromBeginning, m1de - m2sb + 1} };
+    }
+    /*      m1db-------------------------------------m1de  */
+    /*  m2sb-------------------------------------m2se  */
+    else if(m1db > m2sb && m1de > m2se)
+    {
+        const std::size_t offsetFromBeginning = (m1db - m2sb);
+        return std::optional{ Mapping{m2db + offsetFromBeginning, m1sb, m2se - m1db + 1} };
+    }
+    /*      m1db------------------------------------------------------------m1de    */
+    /*              m2sb-------------------------------------m2se                   */
+    else if(m1db <= m2sb && m1de >= m2se)
+    {
+        return std::optional{ Mapping{m2db, m1sb + (m2sb - m1db), m2se - m2sb + 1} };        
+    }
+    else
+    {
+        assert(false);
+    }
+}
+
+constexpr inline std::optional<std::vector<Mapping>> difference(
+    const Mapping& m1,
+    const Mapping& m2
+)
+{
+    const auto& m1sb = m1.m_sourceNumber;
+    const auto m1se = m1.m_sourceNumber + m1.m_size - 1;
+    const auto& m1db = m1.m_destinationNumber;
+    const auto m1de = m1.m_destinationNumber + m1.m_size - 1;
+
+    const auto& m2sb = m2.m_sourceNumber;
+    const auto m2se = m2.m_sourceNumber + m2.m_size - 1;
+    const auto& m2db = m2.m_destinationNumber;
+    const auto m2de = m2.m_destinationNumber + m2.m_size - 1;
+
+    if(!doRangesIntersect(m1db, m1de, m2sb, m2se))
+    {
+        return std::optional{std::vector{m1}};
+    }
+
+    /*              m1db-----------------------------------m1de             */
+    /*   m2sb--------------------------------------------------------m2se   */
+    if(m1db >= m2sb && m1de <= m2se)
+    {
+        return std::nullopt;
+    } 
+    /*  m1db-------------------------------------m1de           */
+    /*           m2sb-------------------------------------m2se  */
+    else if(m1db < m2sb && m1de < m2se)
+    {
+        return std::optional{ std::vector{Mapping{m1db, m1sb, m2sb - m1db}} };
+    }
+    /*      m1db-------------------------------------m1de  */
+    /*  m2sb-------------------------------------m2se  */
+    else if(m1db > m2sb && m1de > m2se)
+    {
+        return std::optional{ std::vector{Mapping{m1db + (m2se - m1db) + 1, m1sb + (m2se - m1db) + 1, m1de - m2se}} };
+    }
+    /*      m1db------------------------------------------------------------m1de    */
+    /*              m2sb-------------------------------------m2se                   */
+    else if(m1db <= m2sb && m1de >= m2se)
+    {
+        return std::optional{ 
+            std::vector{
+                Mapping{m1db, m1sb, m2sb - m1db},
+                Mapping{m1db + (m2se - m1db) + 1, m1sb + (m2se - m1db) + 1, m1de - m2se}
+            } 
+            };
+    }
+    else
+    {
+        assert(false);
+    }
+}
+
+constexpr inline std::optional<std::vector<Mapping>> reverseDifference(
+    const Mapping& m1,
+    const Mapping& m2
+)
+{
+    return difference(
+        Mapping{m1.m_sourceNumber, m1.m_destinationNumber, m1.m_size},
+        Mapping{m2.m_sourceNumber, m2.m_destinationNumber, m1.m_size}
+    );
+}
 
 struct MappingInfo
 {
@@ -115,6 +242,132 @@ struct MappingInfo
     std::vector<Mapping> m_mappings;
 };
 
+constexpr inline bool operator==(const MappingInfo& m1, const MappingInfo& m2) noexcept
+{
+    constexpr auto setEqual = [](const std::vector<Mapping>& mappings1, const std::vector<Mapping>& mappings2) noexcept
+    {
+        const bool firstCondition = std::ranges::all_of(
+            mappings1, 
+            [&](const Mapping& m){
+                return std::ranges::find(mappings2, m) != std::ranges::end(mappings2);
+            }
+        );
+    
+        const bool secondCondition = std::ranges::all_of(
+            mappings2, 
+            [&](const Mapping& m){
+                return std::ranges::find(mappings1, m) != std::ranges::end(mappings1);
+            }
+        );
+
+        return firstCondition && secondCondition; 
+    };
+
+    return m1.m_source == m2.m_source && m1.m_destination == m2.m_destination && setEqual(m1.m_mappings, m2.m_mappings);
+}
+
+inline MappingInfo compose(const MappingInfo& m1, const MappingInfo& m2) noexcept
+{
+    assert(m1.m_destination == m2.m_source);
+
+    std::vector<Mapping> newMappings{};
+
+    for(const Mapping& m1Mapping : m1.m_mappings)
+    {
+        for(const Mapping& m2Mapping : m2.m_mappings)
+        {
+            const std::optional<Mapping> optNewMapping = compose(m1Mapping, m2Mapping);
+            if(optNewMapping.has_value())
+            {
+                newMappings.push_back(*optNewMapping);
+            }
+        }
+    }
+
+    std::vector<Mapping> leftoverMappings{};
+    for(const Mapping& m1Mapping : m1.m_mappings)
+    {
+        std::queue<Mapping> needToCheck{};
+        needToCheck.push(m1Mapping);
+
+        while(!needToCheck.empty())
+        {
+            const Mapping& newMapping = needToCheck.front();
+            bool didItPassAll = true;
+            for(const Mapping& m2Mapping : m2.m_mappings)
+            {
+                const std::optional<std::vector<Mapping>> optDifference = difference(newMapping, m2Mapping);
+                if(optDifference.has_value())
+                {
+                    const std::vector<Mapping>& difference = *optDifference;
+                    if(not(difference.size() == 1 and difference[0] == newMapping))
+                    {
+                        didItPassAll = false;
+                        for(const Mapping& mapping : difference)
+                        {
+                            needToCheck.push(mapping);
+                        }
+                    }
+                }
+            }
+
+            if(didItPassAll && std::ranges::find(leftoverMappings, newMapping) == std::ranges::end(leftoverMappings) && newMapping.m_size != 0)
+            {
+                leftoverMappings.push_back(newMapping);
+            }
+            needToCheck.pop();
+        }
+    }
+
+    for(const Mapping& m2Mapping : m2.m_mappings)
+    {
+        const Mapping reverseM2Mapping = Mapping{m2Mapping.m_sourceNumber, m2Mapping.m_destinationNumber, m2Mapping.m_size};
+        std::queue<Mapping> needToCheck{};
+        needToCheck.push(reverseM2Mapping);
+
+        while(!needToCheck.empty())
+        {
+            const Mapping& newMapping = needToCheck.front();
+            bool didItPassAll = true;
+            for(const Mapping& m1Mapping : m1.m_mappings)
+            {
+                const Mapping& reverseM1Mapping = Mapping{m1Mapping.m_sourceNumber, m1Mapping.m_destinationNumber, m1Mapping.m_size};
+                const std::optional<std::vector<Mapping>> optDifference = difference(newMapping, reverseM1Mapping);
+                if(optDifference.has_value())
+                {
+                    const std::vector<Mapping>& difference = *optDifference;
+                    if(not(difference.size() == 1 and difference[0] == newMapping))
+                    {
+                        didItPassAll = false;
+                        for(const Mapping& mapping : difference)
+                        {
+                            needToCheck.push(mapping);
+                        }
+                    }
+                }
+            }
+
+            const Mapping newMappingForLeftovers{newMapping.m_sourceNumber, newMapping.m_destinationNumber, newMapping.m_size};
+            if(didItPassAll && std::ranges::find(leftoverMappings, newMappingForLeftovers) == std::ranges::end(leftoverMappings) && newMappingForLeftovers.m_size != 0)
+            {
+                leftoverMappings.push_back(newMappingForLeftovers);
+            }
+            needToCheck.pop();
+        }
+    }
+    
+    for(const Mapping& leftover : leftoverMappings)
+    {
+        newMappings.push_back(leftover);
+    }
+
+    return MappingInfo
+    {
+        m1.m_source,
+        m2.m_destination,
+        std::move(newMappings)
+    };
+}
 
 
 struct Data
