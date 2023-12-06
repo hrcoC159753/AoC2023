@@ -304,7 +304,7 @@ std::size_t solve(const std::string_view text) noexcept
             const auto& splittingRange = splitingRanges.front();
             const auto&[rangeBegin, rangeSize] = splittingRange;
 
-            if(rangeSize > 10'000'000)
+            if(rangeSize > 10'000'000'000)
             {
                 auto&&[rangeOne, rangeTwo] = splitRange(splittingRange);
 
