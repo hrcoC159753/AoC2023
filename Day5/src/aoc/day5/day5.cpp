@@ -290,7 +290,8 @@ std::size_t solve(const std::string_view text) noexcept
     constexpr static auto splitRange = [](const std::tuple<std::size_t, std::size_t>& range) noexcept
     {
         const auto& [rangeBegin, rangeSize] = range;
-        return std::pair{std::tuple{rangeBegin, rangeBegin + rangeSize / 2}, std::tuple{rangeBegin + rangeSize / 2, rangeSize - rangeSize / 2}};
+        const auto firstRangeSize = rangeSize - rangeSize / 2;
+        return std::pair{std::tuple{rangeBegin, firstRangeSize}, std::tuple{rangeBegin + firstRangeSize, rangeSize - firstRangeSize}};
     };
 
     std::queue<std::tuple<std::size_t, std::size_t>> newRanges{};
@@ -304,7 +305,7 @@ std::size_t solve(const std::string_view text) noexcept
             const auto& splittingRange = splitingRanges.front();
             const auto&[rangeBegin, rangeSize] = splittingRange;
 
-            if(rangeSize > 10'000'000'000)
+            if(rangeSize > 1'000'000'000)
             {
                 auto&&[rangeOne, rangeTwo] = splitRange(splittingRange);
 
