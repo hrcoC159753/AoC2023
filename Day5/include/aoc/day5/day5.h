@@ -8,6 +8,7 @@
 #include <compare>
 #include <cassert>
 #include <queue>
+#include <iostream>
 
 #include "cpp_utils/cpp_utils.h"
 
@@ -188,28 +189,33 @@ constexpr inline std::optional<std::vector<Mapping>> difference(
     {
         return std::optional{std::vector{m1}};
     }
-
+    /*   m1db--------------------------------------------------------m1de   */
+    /*   m2sb--------------------------------------------------------m2se   */
+    if(m1db == m2sb && m1de == m2se)
+    {
+        return std::nullopt;
+    }
     /*              m1db-----------------------------------m1de             */
     /*   m2sb--------------------------------------------------------m2se   */
-    if(m1db >= m2sb && m1de <= m2se)
+    else if(m1db > m2sb && m1de < m2se)
     {
         return std::nullopt;
     } 
     /*  m1db-------------------------------------m1de           */
     /*           m2sb-------------------------------------m2se  */
-    else if(m1db < m2sb && m1de < m2se)
+    else if(m1db <= m2sb && m1de <= m2se)
     {
         return std::optional{ std::vector{Mapping{m1db, m1sb, m2sb - m1db}} };
     }
     /*      m1db-------------------------------------m1de  */
     /*  m2sb-------------------------------------m2se  */
-    else if(m1db > m2sb && m1de > m2se)
+    else if(m1db >= m2sb && m1de >= m2se)
     {
         return std::optional{ std::vector{Mapping{m1db + (m2se - m1db) + 1, m1sb + (m2se - m1db) + 1, m1de - m2se}} };
     }
     /*      m1db------------------------------------------------------------m1de    */
     /*              m2sb-------------------------------------m2se                   */
-    else if(m1db <= m2sb && m1de >= m2se)
+    else if(m1db < m2sb && m1de > m2se)
     {
         return std::optional{ 
             std::vector{
@@ -284,6 +290,8 @@ inline MappingInfo compose(const MappingInfo& m1, const MappingInfo& m2) noexcep
         }
     }
 
+    std::cout << "NewMappings: " << newMappings.size() << std::endl;
+
     std::vector<Mapping> leftoverMappings{};
     for(const Mapping& m1Mapping : m1.m_mappings)
     {
@@ -297,17 +305,23 @@ inline MappingInfo compose(const MappingInfo& m1, const MappingInfo& m2) noexcep
             for(const Mapping& m2Mapping : m2.m_mappings)
             {
                 const std::optional<std::vector<Mapping>> optDifference = difference(newMapping, m2Mapping);
-                if(optDifference.has_value())
+                if(const bool hasDifference = optDifference.has_value(); hasDifference)
                 {
                     const std::vector<Mapping>& difference = *optDifference;
-                    if(not(difference.size() == 1 and difference[0] == newMapping))
+                    if(difference.size() == 1 and difference[0] == newMapping)
                     {
-                        didItPassAll = false;
-                        for(const Mapping& mapping : difference)
-                        {
-                            needToCheck.push(mapping);
-                        }
+                        continue;
                     }
+
+                    didItPassAll = false;
+                    for(const Mapping& mapping : difference)
+                    {
+                        needToCheck.push(mapping);
+                    }
+                }
+                else
+                {
+                    didItPassAll = false;
                 }
             }
 
@@ -318,6 +332,8 @@ inline MappingInfo compose(const MappingInfo& m1, const MappingInfo& m2) noexcep
             needToCheck.pop();
         }
     }
+
+    std::cout << "Leftover Mappings 1: " << leftoverMappings.size() << std::endl;
 
     for(const Mapping& m2Mapping : m2.m_mappings)
     {
@@ -333,17 +349,23 @@ inline MappingInfo compose(const MappingInfo& m1, const MappingInfo& m2) noexcep
             {
                 const Mapping& reverseM1Mapping = Mapping{m1Mapping.m_sourceNumber, m1Mapping.m_destinationNumber, m1Mapping.m_size};
                 const std::optional<std::vector<Mapping>> optDifference = difference(newMapping, reverseM1Mapping);
-                if(optDifference.has_value())
+                if(const bool hasDifference = optDifference.has_value(); hasDifference)
                 {
                     const std::vector<Mapping>& difference = *optDifference;
-                    if(not(difference.size() == 1 and difference[0] == newMapping))
+                    if(difference.size() == 1 and difference[0] == newMapping)
                     {
-                        didItPassAll = false;
-                        for(const Mapping& mapping : difference)
-                        {
-                            needToCheck.push(mapping);
-                        }
+                        continue;
                     }
+
+                    didItPassAll = false;
+                    for(const Mapping& mapping : difference)
+                    {
+                        needToCheck.push(mapping);
+                    }
+                }
+                else
+                {
+                    didItPassAll = false;
                 }
             }
 
@@ -360,6 +382,8 @@ inline MappingInfo compose(const MappingInfo& m1, const MappingInfo& m2) noexcep
     {
         newMappings.push_back(leftover);
     }
+
+    std::cout << "FinalMappings: " << newMappings.size() << std::endl;
 
     return MappingInfo
     {

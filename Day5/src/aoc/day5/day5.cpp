@@ -316,6 +316,7 @@ std::size_t solve2(const std::string_view text) noexcept
             const MappingInfo& newMappingInfo = findMappingInfoForSource(current.m_destination);
 
             current = compose(current, newMappingInfo);
+            std::cout << "Current: (" << current.m_source << ", " << current.m_destination << ")\n";
         }
 
         return current;

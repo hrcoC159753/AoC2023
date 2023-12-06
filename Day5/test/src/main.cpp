@@ -189,7 +189,7 @@ TEST(Mappings, compose) {
     }
 }
 
-TEST(Mappings, rdifference) 
+TEST(Mappings, difference) 
 {
     {
         const Mapping m1{10, 0, 5};
