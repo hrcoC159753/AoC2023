@@ -305,7 +305,7 @@ std::size_t solve(const std::string_view text) noexcept
             const auto& splittingRange = splitingRanges.front();
             const auto&[rangeBegin, rangeSize] = splittingRange;
 
-            if(rangeSize > 1'000'000'000)
+            if(rangeSize > 10'000'000)
             {
                 auto&&[rangeOne, rangeTwo] = splitRange(splittingRange);
 
@@ -336,6 +336,8 @@ std::size_t solve(const std::string_view text) noexcept
 
         auto range = newRanges.front();
         newRanges.pop();
+
+        std::cout << std::string_view{"Left: "} << newRanges.size() << std::endl;
         return range;
     };
 
