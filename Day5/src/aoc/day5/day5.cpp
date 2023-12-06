@@ -15,6 +15,8 @@
 #include <algorithm>
 #include <functional>
 #include <numeric>
+#include <thread>
+#include <mutex>
 
 using cpp_utils::operator<<;
 
@@ -250,6 +252,7 @@ std::size_t solve(const std::string_view text) noexcept
 
     const auto toMinimalValueOfRange = [&](const std::tuple<std::size_t, std::size_t>& range) noexcept
     {
+        std::cout << std::string_view{"Begin range: "} << range << std::endl; 
         const auto&[rangeBegin, rangeSize] = range;
         std::size_t minNumber = std::numeric_limits<std::size_t>::max(); 
         for(std::size_t num = rangeBegin; num < rangeBegin + rangeSize; ++num)
@@ -257,19 +260,22 @@ std::size_t solve(const std::string_view text) noexcept
             const auto resultNum = finalFunction(num);
             if(resultNum < minNumber)
             {
+                std::cout << std::string_view{"Change of minimal number from "} << minNumber << std::string_view{" to "} << resultNum << std::endl; 
                 minNumber = resultNum;
             }
 
-            if(num % 100'000 == 0)
+            if(num % 1'000'000 == 0)
             {
                 std::cout << std::string_view{"num: "} << num << std::endl;
             }
         }
+        std::cout << std::string_view{"End range: "} << range << std::endl; 
 
         return minNumber;
     };
 
     std::vector<std::tuple<std::size_t, std::size_t>> ranges{};
+
     assert(seeds.m_seedNumbers.size() % 2 == 0);
     for(std::size_t i = 0; i < seeds.m_seedNumbers.size(); i += 2)
     {
@@ -277,6 +283,90 @@ std::size_t solve(const std::string_view text) noexcept
         const auto& rangeSize = seeds.m_seedNumbers[i + 1];
 
         ranges.emplace_back(std::size_t{rangeBegin}, std::size_t{rangeSize});
+    }
+
+    assert(ranges.size() == 10);
+
+    constexpr static auto splitRange = [](const std::tuple<std::size_t, std::size_t>& range) noexcept
+    {
+        const auto& [rangeBegin, rangeSize] = range;
+        return std::pair{std::tuple{rangeBegin, rangeBegin + rangeSize / 2}, std::tuple{rangeBegin + rangeSize / 2, rangeSize - rangeSize / 2}};
+    };
+
+    std::queue<std::tuple<std::size_t, std::size_t>> newRanges{};
+    for(const auto& range : ranges)
+    {
+        std::queue<std::tuple<std::size_t, std::size_t>> splitingRanges{};
+        splitingRanges.push(range);
+
+        while(!splitingRanges.empty())
+        {
+            const auto& splittingRange = splitingRanges.front();
+            const auto&[rangeBegin, rangeSize] = splittingRange;
+
+            if(rangeSize > 10'000'000)
+            {
+                auto&&[rangeOne, rangeTwo] = splitRange(splittingRange);
+
+                splitingRanges.push(rangeOne);
+                splitingRanges.push(rangeTwo);
+            }
+            else
+            {
+                newRanges.push(splittingRange);
+            }
+            splitingRanges.pop();
+        }
+    }
+
+    std::cout << std::string_view{"Constructed new ranges, size: "} << newRanges.size() << std::endl; 
+
+    std::vector<std::thread> taskThreads{};
+    std::vector<std::size_t> taskResults{};
+
+    std::mutex mutex;
+    const auto getRange = [&]() -> std::optional<std::tuple<std::size_t, std::size_t>>
+    {
+        std::unique_lock lock{mutex};
+        if(newRanges.empty())
+        {
+            return std::nullopt;
+        }
+
+        auto range = newRanges.front();
+        newRanges.pop();
+        return range;
+    };
+
+    const auto pushToResults = [&](const std::size_t& result)
+    {
+        std::unique_lock lock{mutex};
+
+        taskResults.push_back(result);
+    };
+
+    constexpr static std::size_t THREAD_NUMBER = 16;
+    for(std::size_t i = 0; i < THREAD_NUMBER; ++i)
+    {
+        taskThreads.emplace_back(
+            std::thread{
+                [&pushToResults, &getRange, &toMinimalValueOfRange]() noexcept
+                {
+                    std::optional optRange = getRange();
+                    while(optRange.has_value())
+                    {
+                        pushToResults(toMinimalValueOfRange(*optRange));
+
+                        optRange = getRange();
+                    }
+                }
+            }
+        );
+    }
+
+    for(auto& thread : taskThreads)
+    {
+        thread.join();
     }
 
     auto locationView = ranges

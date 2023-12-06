@@ -168,6 +168,8 @@ constexpr inline std::optional<Mapping> compose(const Mapping& m1, const Mapping
     {
         assert(false);
     }
+
+    return std::nullopt;
 }
 
 constexpr inline std::optional<std::vector<Mapping>> difference(
@@ -228,6 +230,8 @@ constexpr inline std::optional<std::vector<Mapping>> difference(
     {
         assert(false);
     }
+
+    return std::nullopt;
 }
 
 constexpr inline std::optional<std::vector<Mapping>> reverseDifference(
