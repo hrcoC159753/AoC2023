@@ -49,9 +49,11 @@ def chooseWinningSubsetWithJockerImpl(cards):
     strengthAndFreq = chooseWinningSubsetImpl(cards)
     (strength, freq) = strengthAndFreq
 
-    if 'J' in freq:
+    if 'J' in freq and len(freq) > 1:
         n = freq.pop('J')
         items = [[key, value] for (key, value) in sorted(freq.items(), key = lambda e: e[1], reverse = True)]
+
+        assert len(freq) > 0, f'{cards}'
 
         while n > 0:
             i = 0
@@ -134,11 +136,11 @@ def cardsToStrength(cards):
 def getTuple(csb):
     t = ( 
         csb[0],
-        mapCardStrengthToNumber(csb[1][0]),
-        mapCardStrengthToNumber(csb[1][1]),
-        mapCardStrengthToNumber(csb[1][2]), 
-        mapCardStrengthToNumber(csb[1][3]), 
-        mapCardStrengthToNumber(csb[1][4])
+        mapCardStrengthToNumberWithJocker(csb[1][0]),
+        mapCardStrengthToNumberWithJocker(csb[1][1]),
+        mapCardStrengthToNumberWithJocker(csb[1][2]), 
+        mapCardStrengthToNumberWithJocker(csb[1][3]), 
+        mapCardStrengthToNumberWithJocker(csb[1][4])
     )
     return t
 def main():
@@ -147,7 +149,7 @@ def main():
 
     cardsAndBids = [(line.split(" ")[0].strip(), int(line.split(" ")[1].strip())) for line in lines]
 
-    cardsStrengthBid = [(getStrength(cards), cards, bid) for (cards, bid) in cardsAndBids]
+    cardsStrengthBid = [(getStrengthWithJocker(cards), cards, bid) for (cards, bid) in cardsAndBids]
 
     sortedList = sorted(
         cardsStrengthBid,
