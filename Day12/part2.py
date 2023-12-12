@@ -37,14 +37,14 @@ def fillWithPoints(line, indexes):
 def changingIndexes(matches):
     matchesLargerThenThree = filter(lambda x: len(x.group()) >= 3, matches)
     streamOfIndexListsThatPointIntoMachedRangesQuestionmarks = map(lambda x: [i for i in range(x.start(), x.end()) if x.string[i] == '?'], matchesLargerThenThree)
-    return itertools.chain.from_iterable(streamOfIndexListsThatPointIntoMachedRangesQuestionmarks)
+    return list(itertools.chain.from_iterable(streamOfIndexListsThatPointIntoMachedRangesQuestionmarks))
 
 def printFunctionInfo(function):
 
-    def returnFunction(*args, **kwargs):
-        print(f'{args}, {kwargs}')
-        value = function(*args, **kwargs)
-        print(f'{args}, {kwargs} -> {value}')
+    def returnFunction(line, groupCounts, previousChangingIndexes = [], solutions = []):
+        transformedLine = ''.join('.' if (i in previousChangingIndexes) else e for (i, e) in enumerate(line))
+        value = function(line, groupCounts, previousChangingIndexes = previousChangingIndexes, solutions = solutions)
+        print(f'{transformedLine}:{previousChangingIndexes} -> {value}')
         return value
     return returnFunction
 
@@ -57,25 +57,63 @@ def isSameAs(qLine):
         return True
     return returningFunction
 
-@printFunctionInfo
-def countWays(line, groupCounts, alreadyFoundSolutions = []):
+def generateIndexes(end, size):
+    for i in range(1, size + 1):
+        yield from itertools.combinations(range(0, end), i)
+
+def transformWithIndexes(line, indexes):
+    return ''.join('.' if (i in indexes) else e for (i, e) in enumerate(line))
+
+def check(x):
+    return True
+
+def fit(line, size, span):
+    for c in line[span[0]: span[1] + 1]:
+        if c != '?' and c != '#':
+            return None
+    buff = '#' * size
+    if (span[0] != 0 and (line[span[0] - 1] == '.' or line[span[0] - 1] == '?')):
+        buff = '.' + buff
+        span = (span[0] - 1, span[1])
+    if (span[1] != len(line) - 1 and (line[span[1] + 1] == '.' or line[span[1] + 1] == '?')):
+        buff = buff + '.'
+        span = (span[0], span[1] + 1)
+
+    return line[:span[0]] + buff + line[span[1] + 1:]
+
+
+def countWays2(line, groupCounts):
     
-    matches = [m for m in re.finditer(secondPattern, line)]
+    print(f'{line}')
+
+    newLine = line
+    for i in filter(lambda i: (line[i] == '#' or line[i] == '?'), range(len(line))):
+        f = fit(line, groupCounts[0], (i, i + groupCounts[0] - 1))
+        if f != None:
+            countWays2(, groupCounts[1:])
+
+
+@printFunctionInfo
+def countWays(line, groupCounts, previousChangingIndexes = [], solutions = []):
+    transformedLine = ''.join('.' if (i in previousChangingIndexes) else e for (i, e) in enumerate(line))
+    matches = [m for m in re.finditer(secondPattern, transformedLine)]
     if len(matches) > len(groupCounts):
         return 0
     elif len(matches) < len(groupCounts):
-        lineArray = [e for e in line]
+        indexes = changingIndexes(matches)
+        localPreviousChangingIndex = previousChangingIndexes[:]
         s = 0
-        for changingIndex in changingIndexes(matches):
-            lineArray[changingIndex] = '.'
-            newLine = ''.join(lineArray)
-            s += countWays(newLine, groupCounts, alreadyFoundSolutions = alreadyFoundSolutions)
-            lineArray[changingIndex] = '?'
+        for changingIndex in indexes:
+            if changingIndex in localPreviousChangingIndex:
+                continue
+            if len(localPreviousChangingIndex) > 0 and changingIndex < localPreviousChangingIndex[-1]:
+                continue
+            
+            localPreviousChangingIndex.append(changingIndex)
+            s += countWays(line, groupCounts, previousChangingIndexes = localPreviousChangingIndex, solutions = solutions)
+            localPreviousChangingIndex.pop()
         return s
     else:
-        if len(alreadyFoundSolutions) > 0 and any(isSameAs(line)(solution) for solution in alreadyFoundSolutions): 
-            return 0
-        
         p = 1
         for (match, groupCount) in zip(matches, groupCounts):
             matchLength = len(match.group())
@@ -110,7 +148,10 @@ def countWays(line, groupCounts, alreadyFoundSolutions = []):
 
                 p *= ((freeHashes + 1) - (freeHashes - leftPadding) - (freeHashes - rightPadding))
 
-        alreadyFoundSolutions.append(line)
+        if len(solutions) > 0 and any(isSameAs(transformedLine)(x) for x in solutions):
+            return 0
+
+        solutions.append(transformedLine)
         return p
 
 def transformLine(line):
@@ -127,7 +168,7 @@ def main():
 
     # solution = sum(map(lambda x: x[1], solutions))
     # solution = countWays('?#?#?#?', [1, 1, 2])
-    solution = countWays(lines[5][0], lines[5][1])
+    solution = countWays2(lines[5][0], lines[5][1])
     print(solution)
 
 if __name__ == '__main__':
