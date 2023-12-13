@@ -41,12 +41,18 @@ def changingIndexes(matches):
 
 def printFunctionInfo(function):
 
+    def returnFunction2(*args, **kwargs):
+        print(f'{args}, {kwargs}')
+        value = function(*args, **kwargs)
+        print(f'Result -> {value}')
+        return value
+
     def returnFunction(line, groupCounts, previousChangingIndexes = [], solutions = []):
         transformedLine = ''.join('.' if (i in previousChangingIndexes) else e for (i, e) in enumerate(line))
         value = function(line, groupCounts, previousChangingIndexes = previousChangingIndexes, solutions = solutions)
         print(f'{transformedLine}:{previousChangingIndexes} -> {value}')
         return value
-    return returnFunction
+    return returnFunction2
 
 def isSameAs(qLine):
     def returningFunction(line):
@@ -67,31 +73,71 @@ def transformWithIndexes(line, indexes):
 def check(x):
     return True
 
-def fit(line, size, span):
+def fitDebug(fitFunciton):
+
+    def retFunc(line, span):
+        value = fitFunciton(line, span)
+        print(f'{line}, {span} -> {value}')
+        return value
+    return retFunc
+
+@fitDebug
+def fit(line, span):
+    assert span[0] >= 0
+    assert span[0] <= len(line) - 1
+    assert span[1] >= 0
+    assert span[1] <= len(line) - 1
+    assert span[0] <= span[1]
+
     for c in line[span[0]: span[1] + 1]:
         if c != '?' and c != '#':
             return None
+    size = span[1] - span[0] + 1
     buff = '#' * size
-    if (span[0] != 0 and (line[span[0] - 1] == '.' or line[span[0] - 1] == '?')):
-        buff = '.' + buff
-        span = (span[0] - 1, span[1])
-    if (span[1] != len(line) - 1 and (line[span[1] + 1] == '.' or line[span[1] + 1] == '?')):
-        buff = buff + '.'
-        span = (span[0], span[1] + 1)
-
+    if span[0] != 0:
+        if line[span[0] - 1] == '.' or line[span[0] - 1] == '?':
+            buff = '.' + buff
+            span = (span[0] - 1, span[1])
+        else:
+            return None
+    if span[1] != len(line) - 1:
+        if line[span[1] + 1] == '.' or line[span[1] + 1] == '?':
+            buff = buff + '.'
+            span = (span[0], span[1] + 1)
+        else:
+            return None
     return line[:span[0]] + buff + line[span[1] + 1:]
 
 
-def countWays2(line, groupCounts):
+@printFunctionInfo
+def countWays2(line, groupCounts, initalGroups, fittingRangeStart = 0, solutions = []):
     
-    print(f'{line}')
-
-    newLine = line
-    for i in filter(lambda i: (line[i] == '#' or line[i] == '?'), range(len(line))):
-        f = fit(line, groupCounts[0], (i, i + groupCounts[0] - 1))
-        if f != None:
-            countWays2(, groupCounts[1:])
-
+    if len(groupCounts) == 0:
+        if len(line) == fittingRangeStart or all(e == '.' or e == '?' for e in line[fittingRangeStart:]):
+            if line in solutions:
+                print(f'Duplicate: {line}')
+                return 0
+            else:
+                print(f'New solution: {line}')
+                solutions.append(line)
+                return 1
+        else:
+            return 0    
+    s = 0
+    for groupCount in groupCounts:
+        didFitAny = False
+        for i in range(fittingRangeStart, len(line)):
+            if i + (groupCount - 1) >= len(line):
+                continue
+            f = fit(line, (i, i + (groupCount - 1)))
+            if f != None:
+                didFitAny = True
+                s += countWays2(f, groupCounts[1:], initalGroups, fittingRangeStart = i + groupCount, solutions = solutions)
+            if i == '?':
+                line[i] = '.'
+        if not didFitAny:
+            return s   
+    return s
 
 @printFunctionInfo
 def countWays(line, groupCounts, previousChangingIndexes = [], solutions = []):
@@ -155,8 +201,8 @@ def countWays(line, groupCounts, previousChangingIndexes = [], solutions = []):
         return p
 
 def transformLine(line):
-    # return ('?'.join([line[0]] * 5), list(itertools.chain.from_iterable([line[1]] * 5)))
-    return line
+    return ('?'.join([line[0]] * 5), list(itertools.chain.from_iterable([line[1]] * 5)))
+    # return line
 
 def main():
     with open(sys.argv[1]) as fd:
@@ -172,4 +218,19 @@ def main():
     print(solution)
 
 if __name__ == '__main__':
-    main()
+    # assert fit('?#.', (0, 2)) == None
+    # assert fit('?#?', (0, 2)) == '###', f"{fit('?#?', (0, 2))}"
+    # assert fit('?#?.', (0, 2)) == '###.'
+    # assert fit('.?#?', (0, 2)) == None
+    # assert fit('.?#?', (1, 3)) == '.###'
+    # assert fit('.?#?.', (0, 2)) == None
+    # assert fit('.?#?.', (1, 3)) == '.###.'
+    # assert fit('.?#?#', (0, 2)) == None
+    # assert fit('.?#?#', (1, 3)) == None
+    # assert fit('???.###', (0, 0)) == '#.?.###', f"{fit('???.###', (0, 1))}"
+
+    transformedLine = transformLine(('.??..??...?##.', [1, 1, 3]))
+    s = countWays2(transformedLine[0], transformedLine[1], transformedLine[1])
+    print(s)
+
+    # main()
