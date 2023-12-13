@@ -21,7 +21,6 @@ def main():
             for j in range(len(paragraphLines[k])):
                 column.append(paragraphLines[k][j][i])
             paragraphColumns.append(''.join(column))
-        paragraphColumns.append(column)
 
     print(paragraphRows)
     print(paragraphColumns)
