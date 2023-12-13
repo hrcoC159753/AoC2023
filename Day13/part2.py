@@ -7,6 +7,16 @@ def equal(range1, range2):
             return False
     return True
 
+def equalWithSmudge(range1, range2):
+    smudge = 1
+    for (e1, e2) in zip(range1, range2):
+        if e1 != e2:
+            smudge -= 1
+    if smudge == 0:
+        return True
+    else:
+        return False
+
 def getColumn(paragraph, i):
     return (paragraph[k][i] for k in range(len(paragraph)))
 
@@ -15,7 +25,9 @@ def searchSameRows(paragraph):
     indexes = []
     for (i, j) in zip(firstRange, secondRange):
         if equal(paragraph[i], paragraph[j]):
-            indexes.append((i, j))
+            indexes.append((False, (i, j)))
+        elif equalWithSmudge(paragraph[i], paragraph[j]):
+            indexes.append((True, (i, j)))
     return indexes
 
 def searchSameColumns(paragraph):
@@ -23,7 +35,9 @@ def searchSameColumns(paragraph):
     firstRange, secondRange = range(len(paragraph[0])), range(1, len(paragraph[0]))
     for (i, j) in zip(firstRange, secondRange):
         if equal(getColumn(paragraph, i), getColumn(paragraph, j)):
-            indexes.append((i, j))
+            indexes.append((False, (i, j)))
+        elif equalWithSmudge(getColumn(paragraph, i), getColumn(paragraph, j)):
+            indexes.append((True, (i, j)))
     return indexes
 
 def solveHortizontalReflection(paragraph):
@@ -33,13 +47,24 @@ def solveHortizontalReflection(paragraph):
         return 0
 
     for indexPair in indexes:
-        (i, j) = indexPair
-        for k in itertools.count():
+        (usedSmudge, (i, j)) = indexPair
+        smudge = 0 if usedSmudge else 1
+        for k in itertools.count(start = 1):
             nI, nJ = i - k, j + k
             if nI == -1 or nJ == len(paragraph):
-                return i + 1
-            if not equal(paragraph[nI], paragraph[nJ]):
                 break
+            if not equal(paragraph[nI], paragraph[nJ]):
+                if equalWithSmudge(paragraph[nI], paragraph[nJ]):
+                    if smudge == 1:
+                        smudge = 0
+                    else:
+                        smudge = -1
+                        break
+                else:
+                    smudge = -1
+                    break
+        if smudge == 0:
+            return i + 1
     return 0
 
 def solveVerticalReflection(paragraph):
@@ -49,13 +74,24 @@ def solveVerticalReflection(paragraph):
         return 0
 
     for indexPair in indexes:
-        (i, j) = indexPair
-        for k in itertools.count():
+        (usedSmudge, (i, j)) = indexPair
+        smudge = 0 if usedSmudge else 1
+        for k in itertools.count(start = 1):
             nI, nJ = i - k, j + k
             if nI == -1 or nJ == len(paragraph[0]):
-                return i + 1
-            if not equal((paragraph[k][nI] for k in range(len(paragraph))), (paragraph[k][nJ] for k in range(len(paragraph)))):
                 break
+            if not equal(getColumn(paragraph, nI), getColumn(paragraph, nJ)):
+                if equalWithSmudge(getColumn(paragraph, nI), getColumn(paragraph, nJ)):
+                    if smudge == 1:
+                        smudge = 0
+                    else:
+                        smudge = -1
+                        break
+                else:
+                    smudge = -1
+                    break
+        if smudge == 0:
+            return i + 1
     return 0
 
 
@@ -69,8 +105,6 @@ def main():
 
     s = 0
     for (i, paragraph) in enumerate(paragraphs):
-        if i == 2:
-            breakpoint()
         v = solveVerticalReflection(paragraph)
         h = solveHortizontalReflection(paragraph)
         print(f'{i}: v -> {v}, h -> {h}, r -> {v + 100 * h}')
