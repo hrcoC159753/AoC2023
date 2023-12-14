@@ -7,9 +7,6 @@ def main():
 
     lines = list(map(lambda x: x.strip(), lines))
 
-
-    print(len(lines), len(lines[0]))
-
     assert all(len(lines[0]) == len(line) for line in lines[1:])
 
     s = 0
