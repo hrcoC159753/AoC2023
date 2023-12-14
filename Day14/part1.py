@@ -14,7 +14,7 @@ def main():
 
     s = 0
     for j in range(len(lines[0])):
-        c = 10
+        c = len(lines)
         for (i, e) in enumerate(range(len(lines), 0, -1)):
             if lines[i][j] == 'O':
                 s += c
