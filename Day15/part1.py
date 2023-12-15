@@ -1,21 +1,25 @@
-import iterttols
+import itertools
 import sys
 
 def myHash(x):
-    c = 0
+    s = 0
     for c in x:
-        c += chr(c)
-        c *= 17
-        c %= 256
-    return c
+        s += ord(c)
+        s *= 17
+        s %= 256
+    return s
+
 def main():
-    with open(sys.args[1]) as fd:
+    with open(sys.argv[1]) as fd:
         lines = fd.readlines()
 
-    lines = list(map(lambda x: x.strip(), map(lambda x: x.split(','), lines)))
+    assert len(lines) == 1
 
-    solutions = list(map x: myHash(x), lines)
-    print(solutions)
+    lines = list(map(lambda x: x.strip(), lines[0].split(',')))
+
+    solutions = map(lambda x: myHash(x), lines)
+    solution = sum(solutions)
+    print(solution)
 
 if __name__ == '__main__':
     main()
