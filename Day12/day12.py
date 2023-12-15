@@ -19,8 +19,8 @@ def main():
         return Groups(groups)
 
     lines = map(lambda x: x.strip(), lines)
-    inputData = map(lambda x: (x[0], [int(i) for i in x[1].split(',')]), map(lambda x : x.split(' '), lines))
-    lineInput = map(lambda x: (toGroupSet(x), x[1]), inputData)
+    inputData = list(map(lambda x: (x[0], [int(i) for i in x[1].split(',')]), map(lambda x : x.split(' '), lines)))
+    lineInput = list(map(lambda x: (toGroupSet(x), x[1]), inputData))
     solutions = list(zip(map(lambda data: data[0]([i for i in range(len(data[1]))]), lineInput), inputData))
 
     for (i, (s, d)) in enumerate(solutions, start = 1):
@@ -259,7 +259,6 @@ def testingExamples(example):
 
     allIndexes = [i for i in range(len(groupNumbers))]
 
-    breakpoint()
     solution = groupSets(allIndexes)
 
     print(solution)
