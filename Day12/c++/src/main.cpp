@@ -18,10 +18,10 @@
 #include <unordered_map>
 #include <numeric>
 
-constexpr static bool IS_FIRST_PART{false};
-constexpr static bool IS_MULTITHREADED{true};
+constexpr static bool IS_FIRST_PART{true};
+constexpr static bool IS_MULTITHREADED{false};
 constexpr static bool USE_IDENTITY_TRANSFORM{false}; // DO NOT USE.
-constexpr static std::size_t NUMBER_OF_THREADS{24};
+constexpr static std::size_t NUMBER_OF_THREADS{12};
 
 std::string getFileContent(const std::string_view fileName) noexcept
 {
@@ -90,62 +90,133 @@ std::pair<std::string, std::vector<std::size_t>> transformData(const std::string
     }
 }
 
-std::size_t countNumberOfPreviousHashes(const std::string_view line, const ssize_t lastIndex) noexcept
+std::size_t countNumberOfNextHashes(const std::string_view line, const ssize_t lastIndex) noexcept
 {
-    if(lastIndex < 0)
+    ssize_t i{lastIndex};
+    while(i < line.size() && line[i] == '#')
     {
-        return 0;
+        ++i;
     }
 
-    std::size_t acc{};
-    for(ssize_t i = lastIndex; i > -1; --i)
-    {
-        if(line[i] == '#')
-        {
-            ++acc;
-            continue;
-        }
-        else if(line[i] == '.')
-        {
-            break;
-        }
-
-        assert(false);
-    }
-
-    return acc;
+    return i - lastIndex;
 }
 
-std::size_t solveQuestionmarkOnSingleGroup(const std::vector<std::size_t>& groups, const std::size_t sizeOfQuestionmarkGroup) noexcept
+/*
+def myCombinations(k, q):
+    assert k > 0
+    assert q > 0
+
+    if k == 1:
+        return q
+    elif q == 1 or q == 2:
+        return 0
+    else:
+        s = sum(myCombinations(k - 1, i) for i in range(1, q-2 + 1))
+        return s
+*/
+
+template<>
+struct std::hash<std::pair<std::size_t, std::size_t>>
+{
+    std::size_t operator()(const std::pair<std::size_t, std::size_t>& p) const noexcept
+    {
+        return std::hash<std::size_t>{}(p.first) + std::hash<std::size_t>{}(p.second);
+    }
+};
+
+struct Combinations
+{
+    std::unordered_map<std::pair<std::size_t, std::size_t>, std::size_t> cache{};
+
+    constexpr std::size_t operator()(const std::size_t numberOfGroups, const std::size_t numberOfSpaces) noexcept
+    {
+        assert(numberOfGroups >= 0);
+
+        if(numberOfGroups == 0)
+        {
+            return 1;
+        }
+        else if(numberOfGroups == 1)
+        {
+            return numberOfSpaces;
+        }
+        else if(numberOfGroups > 0 && numberOfSpaces <= numberOfGroups)
+        {
+            return 0;
+        }
+        else
+        {
+            std::size_t s{};
+            for(std::size_t i = 1; i < numberOfSpaces - 2 + 1; ++i)
+            {
+                const std::size_t result = [&]
+                {
+                    if(const auto iter = cache.find(std::pair{numberOfGroups - 1, i}); iter != cache.end())
+                    {
+                        // std::cout << "Cache hit. (" << numberOfGroups -1 << ", " << i <<") = " << iter->second << std::endl;
+                        return iter->second;
+                    }
+                    
+                    const std::size_t result = (*this)(numberOfGroups - 1, i);
+                    cache.try_emplace(std::pair{numberOfGroups - 1, i}, result);
+                    return result;
+                }();
+
+                s += result; 
+            }
+
+            return s;
+        }
+    }
+};
+
+static Combinations myCombinations{};
+
+std::size_t solveQuestionmarkOnSingleGroupConfiguration(const std::vector<std::size_t>& groups, const std::size_t sizeOfQuestionmarkGroup) noexcept
 {
     const std::size_t sumOfGroupSizes = std::accumulate(std::cbegin(groups), std::cend(groups), std::size_t{});
-    const std::size_t numberOfGroups = groups.size();
-    const std::size_t effectiveQuestionmarkGroupSize = sizeOfQuestionmarkGroup - sumOfGroupSizes + numberOfGroups;
+    const ssize_t numberOfGroups = groups.size();
+    const ssize_t effectiveQuestionmarkGroupSize = sizeOfQuestionmarkGroup - sumOfGroupSizes + numberOfGroups;
 
     if(effectiveQuestionmarkGroupSize < numberOfGroups)
     {
         return 0;
     }
 
-
+    return myCombinations(numberOfGroups, effectiveQuestionmarkGroupSize);
 }
 
-std::size_t solveQuestiomarkGroup(const std::vector<std::size_t>& allGroups, const std::size_t sizeOfQuestionmarkGroup) noexcept
+std::vector<std::pair<std::vector<std::size_t>, std::size_t>> solveQuestiomarkGroup(const std::vector<std::size_t>& allGroups, const std::size_t sizeOfQuestionmarkGroup) noexcept
 {
     std::vector<std::size_t> newGroups{};
 
+    std::vector<std::pair<std::vector<std::size_t>, std::size_t>> solutions{};
+
     std::size_t sum{};
-    for(int i = -1; i < allGroups.size(); ++i)
+    for(int i = -1; i < static_cast<int>(allGroups.size()); ++i)
     {
         if(i >= 0)
         {
             newGroups.push_back(allGroups[i]);
         }
 
-        sum += solveQuestionmarkOnSingleGroup(newGroups, sizeOfQuestionmarkGroup);
+        const std::size_t result = solveQuestionmarkOnSingleGroupConfiguration(newGroups, sizeOfQuestionmarkGroup);
+        if(result > 0)
+        {
+            std::vector<std::size_t> restGroups{};
+            restGroups.reserve(allGroups.size() - newGroups.size() + 1);
+            for(int j = newGroups.size(); j < allGroups.size(); ++j)
+            {
+                restGroups.push_back(allGroups[j]);
+            }
+
+            assert(newGroups.size() + restGroups.size() == allGroups.size());
+
+            solutions.emplace_back(std::move(restGroups), result);
+        }
     }
 
-    return sum;
+    return solutions;
 }
 
 template<typename T>
@@ -161,12 +232,37 @@ T toNumber(const std::string_view v) noexcept
 template<typename T>
 std::string_view toStringView(T&& t) { return {std::forward<decltype(t)>(t)}; }
 
+bool canFit(const std::string_view line, const std::size_t currentIndex, const std::size_t numberOfHashes) noexcept
+{
+    std::size_t i{currentIndex};
+    while(i <= line.size() && (line[i] == '#' || line[i] == '?') && (i - currentIndex + 1) < numberOfHashes)
+    {
+        ++i;
+    }
+
+    if(i - currentIndex + 1 != numberOfHashes)
+    {
+        return false;
+    }
+
+    if(i + 1 == line.size())
+    {
+        return true;
+    }
+
+    if(line[i + 1] == '.' || line[i + 1] == '?')
+    {
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
 struct Counter
 {
-    std::unordered_map<std::string, std::size_t> cache{};
-    std::size_t cacheHit{};
-
-    std::size_t count(const std::string_view line, const std::vector<std::size_t>& groups, const std::size_t currentIndex = 0) noexcept
+    static std::size_t count(const std::string_view line, const std::vector<std::size_t>& groups, const std::size_t currentIndex = 0) noexcept
     {
         // std::cout << line << ", " << currentIndex << std::endl;
         if(currentIndex >= line.size() && groups.size() == 0)
@@ -205,7 +301,8 @@ struct Counter
 
             return count(line, groups, i);
         }
-        else if(line[currentIndex] == '#')
+        
+        if(line[currentIndex] == '#')
         {
             if(groups.size() == 0)
             {
@@ -228,7 +325,8 @@ struct Counter
             std::vector<std::size_t> newGroups{std::next(std::ranges::begin(groups)), std::ranges::end(groups)};
             return count(buffer, std::move(newGroups), currentIndex + currentGroupSize);
         }
-        else if(line[currentIndex] == '?')
+        
+        if(line[currentIndex] == '?')
         {
             std::size_t i{currentIndex};
             while(i < line.size() && line[i] == '?')
@@ -236,30 +334,126 @@ struct Counter
                 ++i;
             }
 
-            const std::size_t sizeOfQuestiomarkGroup = i - currentIndex + 1;
+            const std::size_t sizeOfQuestionmarkGroup = i - currentIndex;
             if(i == line.size())
             {
-                return solveQuestionMarkGroup(groups, sizeOfQuestiomarkGroup);
+                return solveQuestionmarkOnSingleGroupConfiguration(groups, sizeOfQuestionmarkGroup);
             }
-
-            std::string buffer{line};
-            std::size_t returningSum{};
-
-            buffer[currentIndex] = '.';
-            const auto dotPart = count(buffer, groups, currentIndex);
-            returningSum += dotPart;
-
-            if(currentIndex == 0 || buffer[currentIndex - 1] == '.')
+            
+            if(line[i] == '.')
             {
-                buffer[currentIndex] = '#';
-                const auto hashPart = count(buffer, groups, currentIndex);
-                returningSum += hashPart;
+                std::size_t sum{};
+                const std::vector<std::pair<std::vector<std::size_t>, std::size_t>> solutions = solveQuestiomarkGroup(groups, sizeOfQuestionmarkGroup);
+                for(const auto&[restGroups, solution] : solutions)
+                {
+                    sum += solution * count(line, restGroups, i);
+                }
+                return sum;
             }
+            
+            if(line[i] == '#')
+            {
+                if(groups.size() == 0)
+                {
+                    return 0;
+                }
 
-            return returningSum;
+                const std::size_t numberOfNextHashes = countNumberOfNextHashes(line, i);
+                std::vector<std::size_t> groupsForQuestionmarkGroup{};
+                std::vector<std::size_t> restGroups = groups;
+
+                std::size_t sum{};
+                for(const auto& group : groups)
+                {
+                    if(numberOfNextHashes > group)
+                    {
+                        groupsForQuestionmarkGroup.push_back(group);
+                        if(not restGroups.empty())
+                        {
+                            restGroups.erase(restGroups.begin());
+                        }
+                        continue;
+                    }
+
+                    ssize_t start = i - group + 1;
+                    if(start < static_cast<ssize_t>(currentIndex))
+                    {
+                        start = currentIndex;
+                    }
+
+                    for(ssize_t j = start; j < start + group; ++j)
+                    {
+                        assert(j >= currentIndex);
+                        if(canFit(line, j, group))
+                        {
+                            std::size_t actualSizeOfQuestionmarkGroup{}; 
+                            if(j == currentIndex)
+                            {
+                                actualSizeOfQuestionmarkGroup = 0;
+                            }
+                            else
+                            {
+                                actualSizeOfQuestionmarkGroup = j - currentIndex - 1;
+                            }
+
+                            const std::size_t coef = solveQuestionmarkOnSingleGroupConfiguration(groupsForQuestionmarkGroup, actualSizeOfQuestionmarkGroup);
+
+                            if(coef == 0)
+                            {
+                                continue;
+                            }
+
+                            std::string newLine{line};
+                            const std::size_t endIndex = j + group;
+                            if(endIndex >= newLine.size())
+                            {
+                                sum += coef;
+                            }
+                            else
+                            {
+                                assert(newLine[endIndex] == '.' || newLine[endIndex] == '?');
+                                if(newLine[endIndex] == '?')
+                                {
+                                    newLine[endIndex] = '.';
+                                }
+
+                                groupsForQuestionmarkGroup.push_back(group);
+                                if(not restGroups.empty())
+                                {
+                                    restGroups.erase(restGroups.begin());
+                                }
+                                sum += coef * count(newLine, restGroups, endIndex);
+                            }
+                            
+                        }
+                    }
+                }
+
+                return sum;
+            }
+            
+            std::cerr << __FILE__ << ':' << __LINE__ << ": This should not happen!" << std::endl;
+            return -1;
+
+            // std::string buffer{line};
+            // std::size_t returningSum{};
+
+            // buffer[currentIndex] = '.';
+            // const auto dotPart = count(buffer, groups, currentIndex);
+            // returningSum += dotPart;
+
+            // if(currentIndex == 0 || buffer[currentIndex - 1] == '.')
+            // {
+            //     buffer[currentIndex] = '#';
+            //     const auto hashPart = count(buffer, groups, currentIndex);
+            //     returningSum += hashPart;
+            // }
+
+            // return returningSum;
         }
-
-        return std::numeric_limits<std::size_t>::max();
+        
+        std::cerr << __FILE__ << ':' << __LINE__ << ": This should not happen!" << std::endl;
+        return -1;
     }
 };
 
@@ -301,8 +495,6 @@ struct Counter2
     }
 
     Counter c{};
-    std::unordered_map<std::string, std::size_t>& cache = c.cache;
-    std::size_t& cacheHit = c.cacheHit;
 };
 
 int main(const int argc, const char* const argv[])
@@ -344,7 +536,7 @@ int main(const int argc, const char* const argv[])
     }
 
     // data = std::vector{
-        // std::pair{std::string{"?###????????"}, std::vector<std::size_t>{3,2,1}}
+    //     std::pair{std::string{".???#?##???.#?"}, std::vector<std::size_t>{2,5,1,2}}
     // };
  
     if(IS_MULTITHREADED)
@@ -398,7 +590,7 @@ int main(const int argc, const char* const argv[])
 
                     {
                         std::unique_lock lock{m};
-                        std::cout << k << ": " << line << ": " << result << ", cache size: " << c.cache.size() << ", cache hit: " << c.cacheHit << std::endl;
+                        std::cout << k << ": " << line << ": " << result << std::endl;
                         sum += result;
                     }
     
@@ -434,7 +626,7 @@ int main(const int argc, const char* const argv[])
                     };
             std::cout << ++i << ": Working on: " << line << std::endl; 
             const auto result = c.count(line, numbers);
-            std::cout << i << ": " << line << ": " << result << ", cache size: " << c.cache.size() << ", cache hit: " << c.cacheHit << std::endl;
+            std::cout << i << ": " << line << ": " << result << std::endl;
             sum += result;
         }
 
