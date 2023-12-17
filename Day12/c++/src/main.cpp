@@ -16,11 +16,12 @@
 #include <optional>
 #include <limits>
 #include <unordered_map>
+#include <numeric>
 
 constexpr static bool IS_FIRST_PART{false};
-constexpr static bool IS_MULTITHREADED{false};
+constexpr static bool IS_MULTITHREADED{true};
 constexpr static bool USE_IDENTITY_TRANSFORM{false}; // DO NOT USE.
-constexpr static std::size_t NUMBER_OF_THREADS{12};
+constexpr static std::size_t NUMBER_OF_THREADS{24};
 
 std::string getFileContent(const std::string_view fileName) noexcept
 {
@@ -115,6 +116,38 @@ std::size_t countNumberOfPreviousHashes(const std::string_view line, const ssize
     return acc;
 }
 
+std::size_t solveQuestionmarkOnSingleGroup(const std::vector<std::size_t>& groups, const std::size_t sizeOfQuestionmarkGroup) noexcept
+{
+    const std::size_t sumOfGroupSizes = std::accumulate(std::cbegin(groups), std::cend(groups), std::size_t{});
+    const std::size_t numberOfGroups = groups.size();
+    const std::size_t effectiveQuestionmarkGroupSize = sizeOfQuestionmarkGroup - sumOfGroupSizes + numberOfGroups;
+
+    if(effectiveQuestionmarkGroupSize < numberOfGroups)
+    {
+        return 0;
+    }
+
+
+}
+
+std::size_t solveQuestiomarkGroup(const std::vector<std::size_t>& allGroups, const std::size_t sizeOfQuestionmarkGroup) noexcept
+{
+    std::vector<std::size_t> newGroups{};
+
+    std::size_t sum{};
+    for(int i = -1; i < allGroups.size(); ++i)
+    {
+        if(i >= 0)
+        {
+            newGroups.push_back(allGroups[i]);
+        }
+
+        sum += solveQuestionmarkOnSingleGroup(newGroups, sizeOfQuestionmarkGroup);
+    }
+
+    return sum;
+}
+
 template<typename T>
 T toNumber(const std::string_view v) noexcept
 {
@@ -197,6 +230,18 @@ struct Counter
         }
         else if(line[currentIndex] == '?')
         {
+            std::size_t i{currentIndex};
+            while(i < line.size() && line[i] == '?')
+            {
+                ++i;
+            }
+
+            const std::size_t sizeOfQuestiomarkGroup = i - currentIndex + 1;
+            if(i == line.size())
+            {
+                return solveQuestionMarkGroup(groups, sizeOfQuestiomarkGroup);
+            }
+
             std::string buffer{line};
             std::size_t returningSum{};
 
