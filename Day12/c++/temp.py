@@ -11,7 +11,7 @@ def main():
     l = list(map(lambda x: int(x.split(':')[0]), lines))
     c = Counter(l)
     a = list(key for (key, value) in c.items() if value == 1)
-    a = list(key for (key, value) in c.items() if value == 1)
+    print(a)
     
     for i in lines:
         if int(i.split(':')[0]) in a:

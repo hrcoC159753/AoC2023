@@ -18,8 +18,8 @@
 #include <unordered_map>
 #include <numeric>
 
-constexpr static bool IS_FIRST_PART{true};
-constexpr static bool IS_MULTITHREADED{false};
+constexpr static bool IS_FIRST_PART{false};
+constexpr static bool IS_MULTITHREADED{true};
 constexpr static bool USE_IDENTITY_TRANSFORM{false}; // DO NOT USE.
 constexpr static std::size_t NUMBER_OF_THREADS{12};
 
@@ -235,22 +235,24 @@ std::string_view toStringView(T&& t) { return {std::forward<decltype(t)>(t)}; }
 bool canFit(const std::string_view line, const std::size_t currentIndex, const std::size_t numberOfHashes) noexcept
 {
     std::size_t i{currentIndex};
-    while(i <= line.size() && (line[i] == '#' || line[i] == '?') && (i - currentIndex + 1) < numberOfHashes)
+    while(i <= line.size() && (line[i] == '#' || line[i] == '?'))
     {
         ++i;
     }
 
-    if(i - currentIndex + 1 != numberOfHashes)
+    const std::size_t size{i - currentIndex};
+    if(size < numberOfHashes)
     {
         return false;
     }
 
-    if(i + 1 == line.size())
+    const std::size_t endIndex = currentIndex + numberOfHashes;
+    if(endIndex >= line.size())
     {
         return true;
     }
 
-    if(line[i + 1] == '.' || line[i + 1] == '?')
+    if(line[endIndex] == '.' || line[endIndex] == '?')
     {
         return true;
     }
@@ -365,6 +367,7 @@ struct Counter
                 std::size_t sum{};
                 for(const auto& group : groups)
                 {
+                    
                     if(numberOfNextHashes > group)
                     {
                         groupsForQuestionmarkGroup.push_back(group);
@@ -381,7 +384,11 @@ struct Counter
                         start = currentIndex;
                     }
 
-                    for(ssize_t j = start; j < start + group; ++j)
+                    if(not restGroups.empty())
+                    {
+                        restGroups.erase(restGroups.begin());
+                    }
+                    for(ssize_t j = start; j < i + 1; ++j)
                     {
                         assert(j >= currentIndex);
                         if(canFit(line, j, group))
@@ -407,7 +414,10 @@ struct Counter
                             const std::size_t endIndex = j + group;
                             if(endIndex >= newLine.size())
                             {
-                                sum += coef;
+                                if(restGroups.size() == 0)
+                                {
+                                    sum += coef;                                
+                                }
                             }
                             else
                             {
@@ -416,17 +426,14 @@ struct Counter
                                 {
                                     newLine[endIndex] = '.';
                                 }
-
-                                groupsForQuestionmarkGroup.push_back(group);
-                                if(not restGroups.empty())
-                                {
-                                    restGroups.erase(restGroups.begin());
-                                }
+        
                                 sum += coef * count(newLine, restGroups, endIndex);
                             }
                             
                         }
                     }
+
+                    groupsForQuestionmarkGroup.push_back(group);
                 }
 
                 return sum;
@@ -536,7 +543,7 @@ int main(const int argc, const char* const argv[])
     }
 
     // data = std::vector{
-    //     std::pair{std::string{".???#?##???.#?"}, std::vector<std::size_t>{2,5,1,2}}
+    //     std::pair{std::string{".?????#??#?#?#??.."}, std::vector<std::size_t>{2,9}}
     // };
  
     if(IS_MULTITHREADED)
