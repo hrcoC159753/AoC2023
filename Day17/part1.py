@@ -1,25 +1,27 @@
 import sys
 from enum import Enum
-from queue import Queue
-from queue import LifoQueue
+from queue import PriorityQueue
+import bisect
 
 class Direction(Enum):
-    Right = 0
-    Left = 1
-    Up = 2
-    Down = 3
+    Right = 'R'
+    Left = 'L'
+    Up = 'U'
+    Down = 'D'
 
 class Head:
-    def __init__(self, direction, nextPosition, sum, numSameDirection = 0):
+    def __init__(self, direction, position, numSameDirection = 0):
         self.direction = direction
-        self.nextPosition = nextPosition
-        self.sum = sum
+        self.position = position
         self.numSameDirection = numSameDirection
+
+    def __repr__(self):
+        return f'{repr(self.direction), {self.position}, {self.numSameDirection}}'
 
 def showHeads(lines, heads):
     for i in range(len(lines)):
         for j in range(len(lines[0])):
-            optHead = next((head for head in heads if (i, j) == head.nextPosition), None)
+            optHead = next((head for head in heads if (i, j) == head.position), None)
             if optHead != None:
                 d = optHead.direction
                 if d == Direction.Right:
@@ -34,10 +36,15 @@ def showHeads(lines, heads):
                 print(f'{lines[i][j]}', end = '')
         print()
 
-def showScores(scores):
+def debugView(currentHead, newHeads, scores):
     for i in range(len(scores)):
         for j in range(len(scores[0])):
-            if scores[i][j] != None:
+            optNewHead = next(filter(lambda h: h.position == (i, j), newHeads), None)
+            if (i, j) == currentHead.position:
+                print('{: <3}'.format(currentHead.direction.value), end = ' ')
+            elif optNewHead != None:
+                print('{: <3}'.format(optNewHead.direction.value.lower()), end = ' ')
+            elif scores[i][j] != None:
                 print('{: <3}'.format(scores[i][j]), end = ' ')
             else:
                 print('{: <3}'.format('N'), end = ' ')
@@ -49,11 +56,10 @@ def isValidPosition(lines, position):
 
     return y >= 0 and y < height and x >= 0 and x < width 
 
-def isValidHead(lines, head):
-    return isValidPosition(lines, head.nextPosition) and head.numSameDirection < 3
-
 def moveForward(lines, head):
-    (y, x) = head.nextPosition
+    if head == None:
+        return None
+    (y, x) = head.position
     if head.direction == Direction.Right:
         newLocation = (y, x + 1)
     elif head.direction == Direction.Left:
@@ -65,12 +71,12 @@ def moveForward(lines, head):
 
     if not isValidPosition(lines, newLocation):
         return None
-    if head.numSameDirection + 1 == 3:
+    if head.numSameDirection == 3:
         return None
-    return Head(head.direction, newLocation, head.sum + lines[newLocation[0]][newLocation[1]], numSameDirection = head.numSameDirection + 1)
+    return Head(head.direction, newLocation, numSameDirection = head.numSameDirection + 1)
 
 def moveClockwise90Degrees(lines, head):
-    (y, x) = head.nextPosition
+    (y, x) = head.position
     if head.direction == Direction.Right:
         newLocation = (y + 1, x)
         newDirection = Direction.Down
@@ -86,10 +92,10 @@ def moveClockwise90Degrees(lines, head):
 
     if not isValidPosition(lines, newLocation):
         return None
-    return Head(newDirection, newLocation, head.sum + lines[newLocation[0]][newLocation[1]], numSameDirection = 1)
+    return Head(newDirection, newLocation, numSameDirection = 1)
 
 def moveCounterClockwise90Degrees(lines, head):
-    (y, x) = head.nextPosition
+    (y, x) = head.position
     if head.direction == Direction.Right:
         newLocation = (y - 1, x)
         newDirection = Direction.Up
@@ -105,7 +111,7 @@ def moveCounterClockwise90Degrees(lines, head):
 
     if not isValidPosition(lines, newLocation):
         return None
-    return Head(newDirection, newLocation, head.sum + lines[newLocation[0]][newLocation[1]], numSameDirection = 1)
+    return Head(newDirection, newLocation, numSameDirection = 1)
 
 def moveForward2(position, direction):
     (y, x) = position
@@ -157,29 +163,19 @@ def moveCounterClockwise90Degrees2(position, direction):
 
 def getNextHeads(lines, head):
     forwardHead = moveForward(lines, head)
-    clockwiseHead = moveClockwise90Degrees(lines, head)
-    counterClockwiseHead = moveCounterClockwise90Degrees(lines, head)
+    secondForwardHead = moveForward(lines, forwardHead)
+    thirdForwardHead = moveForward(lines, secondForwardHead)
+    if head.direction != Direction.Down:
+        clockwiseHead = moveClockwise90Degrees(lines, head)
+    else:
+        clockwiseHead = None
+    if head.direction != Direction.Up:
+        counterClockwiseHead = moveCounterClockwise90Degrees(lines, head)
+    else:
+        counterClockwiseHead = None
 
-    yield forwardHead
-    yield clockwiseHead
-    yield counterClockwiseHead
-
-def recursiveSolution(lines, currentPosition, endPosition, previousDirections):
-    if currentPosition == endPosition:
-        return lines[endPosition[0]][endPosition[1]]
-
-    newData = []
-    prevDir = previousDirections[-2:-4:-1]
-    reversed(prevDir)
-
-    if not (len(previousDirections) > 3 and all(previousDirections[-1] == direction for direction in prevDir)):
-        newData.append(moveForward2(currentPosition, previousDirections[-1]))
-    newData.append(moveClockwise90Degrees2(currentPosition, previousDirections[-1]))
-    newData.append(moveCounterClockwise90Degrees2(currentPosition, previousDirections[-1]))
-
-    v = lines[currentPosition[0]][currentPosition[1]]
-
-    return v + min((recursiveSolution(lines, pos, endPosition, prevDir + [direction]) for (pos, direction) in newData if isValidPosition(lines, pos)))
+    for newHead in filter(lambda x: x != None, (forwardHead, clockwiseHead, counterClockwiseHead, secondForwardHead, thirdForwardHead)):
+        yield newHead
 
 def main():
 
@@ -191,15 +187,47 @@ def main():
 
     assert all(len(lines[0]) == len(line) for line in lines)
 
-    head = Head(Direction.Right, (0, 0), 0, numSameDirection = 0)
+    head = Head(Direction.Right, (0, 0))
+    scores[0][0] = 0
 
     endLocation = (len(lines) - 1, len(lines[0]) - 1)
 
-    q = LifoQueue()
-    q.put(head)
+    visited = set()
+    q = []
+    q.append(head)
 
-    v = recursiveSolution(lines, (0, 0), endLocation, [Direction.Right])
-    print(v)
+    getCost = lambda head: scores[head.position[0]][head.position[1]]
+    getAdditionalCost = lambda head: lines[head.position[0]][head.position[1]]
+    sortKey = lambda head: getCost(head)
+
+    while len(q) > 0:
+        currentHead = q.pop(0)      
+
+        if currentHead == endLocation:
+            break
+
+        nextHeads = list(getNextHeads(lines, currentHead))
+        for newHead in nextHeads:
+            newCost = getCost(currentHead) + getAdditionalCost(newHead)
+
+            if getCost(newHead) == None or getCost(newHead) > newCost:
+                (y, x) = newHead.position
+                scores[y][x] = newCost
+            if newHead.position is not visited:
+                optIndex = next((i for i, e in enumerate(q) if e.position == newHead.position), None)
+                if optIndex != None:
+                    q.sort(key = sortKey)
+                else:
+                    bisect.insort(q, newHead, key = sortKey)
+
+
+        visited.add(currentHead.position)
+        debugView(currentHead, nextHeads, scores)
+        print(len(q), len(visited))
+        print()
+
+    solution = scores[endLocation[0]][endLocation[1]]  
+    print(solution)
 
 if __name__ == '__main__':
     main()
