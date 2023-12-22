@@ -126,29 +126,22 @@ def main():
     button = Button('button', 'broadcaster', [])
     modules.insert(0, button)
 
-    def isSame(currentModuleState, previousModuleState):
-        if type(currentModuleState) != type(previousModuleState):
-            return False
-        return currentModuleState == previousModuleState
-
-    numberOfLowAndHighPulsesPerState = []
-    previousModuleStates = []
-    currentModuleState = {*filter(lambda x: x != None, (module.state() for module in modules))}
-
-    while not any(isSame(currentModuleState, previousModuleState) for previousModuleState in previousModuleStates):
+    numberOfPressesUntilRx = None
+    numberOfButtonPresses = 0
+    while True:
         q = []
 
-        numberOfHighPulses, numberOfLowPulses = 0, 0
-
         button.ping(Pulse.Low, None)
+        numberOfButtonPresses += 1
+        # print(f'Press: {numberOfButtonPresses}')
         q.append(button.pulse())
         while len(q) > 0:
             (name, pulse, outputName) = q.pop(0)
-            # print(f'{name} {pulse} -> {outputName}')
-            if pulse == Pulse.High:
-                numberOfHighPulses += 1
-            else:
-                numberOfLowPulses += 1
+
+            if outputName == 'rx':
+                if pulse == Pulse.Low:
+                    numberOfPressesUntilRx = numberOfButtonPresses
+                    break
 
             modulesWithName = list(filter(lambda m: m.name == outputName, modules))
 
@@ -159,26 +152,10 @@ def main():
                 if newPulseInfo != None:
                     q.append(newPulseInfo)
         
-        previousModuleStates.append(currentModuleState)
-        numberOfLowAndHighPulsesPerState.append((numberOfHighPulses, numberOfLowPulses))
-        currentModuleState = {*filter(lambda x: x != None, (module.state() for module in modules))}
-            
-        # print(list(currentModuleState))
-    
-    assert len(previousModuleStates) == len(numberOfLowAndHighPulsesPerState)
+        if numberOfPressesUntilRx != None:
+            break            
 
-    numberOfButtonPresses = 1000
-
-    wholeCycleNumberOfHighPulses, wholeCycleNumberOfLowPulses = sum(map(lambda x: x[0], numberOfLowAndHighPulsesPerState)), sum(map(lambda x: x[1], numberOfLowAndHighPulsesPerState))
-
-    wholeNumberOfCycles = numberOfButtonPresses // len(numberOfLowAndHighPulsesPerState)
-    leftOver = numberOfButtonPresses % len(numberOfLowAndHighPulsesPerState)
-
-    leftoverNumberOfHighPulses, leftoverNumberOfLowPulses = sum(map(lambda x: x[0], numberOfLowAndHighPulsesPerState[:leftOver])), sum(map(lambda x: x[1], numberOfLowAndHighPulsesPerState[:leftOver]))
-
-    totalNumberOfHighPulses, totalNumberOfLowPulses = wholeNumberOfCycles * wholeCycleNumberOfHighPulses + leftoverNumberOfHighPulses, wholeNumberOfCycles * wholeCycleNumberOfLowPulses + leftoverNumberOfLowPulses
-
-    solution = totalNumberOfHighPulses * totalNumberOfLowPulses
+    solution = numberOfPressesUntilRx
 
     print(solution)
 
