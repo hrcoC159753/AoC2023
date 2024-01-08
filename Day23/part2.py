@@ -1,9 +1,10 @@
 import sys
 import math
 from enum import Enum
+import bisect
 
 file = sys.stdin
-# file = open('input1.txt')
+file = open('input1.txt')
 
 def showPath(lines, path):
     for y in range(len(lines)):
@@ -15,7 +16,7 @@ def showPath(lines, path):
         print()
 
 def showPaths(lines, paths):
-    paths = sum(map(lambda path: [path[0], path[1]], paths), [])
+    paths = sum(map(lambda path: [path.p1, path.p2], paths), [])
     for y in range(len(lines)):
         for x in range(len(lines[y])):
             if (y, x) not in paths:
@@ -70,7 +71,7 @@ def getNextPositions(lines, currentPosition):
     return newPositions
 
 def positionDistance(p1, p2):
-    return math.sqrt(math.pow(p2[0] - p1[0], 2) + math.pow(p2[1] - p1[q]))
+    return math.sqrt(math.pow(p2[0] - p1[0], 2) + math.pow(p2[1] - p1[1], 2))
 
 def showLines(lines):
     for line in lines:
@@ -85,11 +86,6 @@ def getEndPosition(lines):
     index = next((i for i in range(len(lines[-1])) if lines[-1][i] == '.'), None)
     assert index != None
     return (len(lines) - 1, index)
-
-class Type(Enum):
-    Single = 0
-    Intersection = 1
-    End = 2
 
 def findAllTypes(lines):
     retValues = []
@@ -118,40 +114,135 @@ def tracePath(lines, begin, previous = None):
         previous = begin
         begin = nextPosition
 
-    return
+def solve(lines, startPosition, endPosition, previousScore = 0, passedIntersection = [], previousPosition = None):
+    previousPosition = previousPosition
+    currentPosition = startPosition
 
-def tracePathsBetweenIntersections(lines, intersections):
+    length = 0
+    while len(nextPositions := list(filter(lambda x: x != previousPosition, getNextPositions(lines, currentPosition)))) == 1:
+        previousPosition = currentPosition
+        currentPosition = nextPositions[0]
+        length += 1
+
+    if currentPosition in passedIntersection:
+        return -1
+
+    if len(nextPositions) == 0 and currentPosition == endPosition:
+        return previousScore + length
+    elif len(nextPositions) > 1:
+        newPassedIntersections = passedIntersection + [currentPosition]
+        return max([0, *(
+            solve(
+                lines, nextPosition, endPosition, 
+                previousScore = previousScore + length + 1, 
+                passedIntersection = newPassedIntersections, 
+                previousPosition = currentPosition
+            ) for nextPosition in nextPositions)
+        ])
+    else:
+        assert False
+
+def solve2(lines, startPosition, endPosition):
+
+    def goSingle(pos, prev):
+        length = 0
+        while len(nextPositions := list(filter(lambda x: x != prev, getNextPositions(lines, pos)))) == 1:
+            prev = pos
+            pos = nextPositions[0]
+            length += 1
+        return (pos, length, nextPositions)
+
+    previousPosition = None
+    currentPosition = startPosition
+
+    solutions = []
+    previousBatch = [(currentPosition, previousPosition, 0, [])]
+    while len(previousBatch) > 0:
+        nextBatch = []
+        while len(previousBatch) > 0:
+            currentPosition, previousPosition, previousLength, searchedIntersections = previousBatch.pop()
+            currentPosition, length, nextPositions = goSingle(currentPosition, previousPosition)
+
+            if currentPosition == endPosition:
+                solutions.append(length + previousLength)
+
+            if len(nextPositions) == 0:
+                continue
+
+            if currentPosition in searchedIntersections:
+                continue
+
+            newPassedIntersections = searchedIntersections + [currentPosition]
+                        
+            for nextPosition in nextPositions:
+                nextBatch.append((nextPosition, currentPosition, previousLength + length + 1, newPassedIntersections))
+
+        previousBatch = nextBatch
+
+    return max(solutions)
+
+def getIntersections(lines):
+    intersections = []
+    for y in range(len(lines)):
+        for x in range(len(lines[y])):
+            if lines[y][x] == '#':
+                continue
+            numberOfNextPositions = len(getNextPositions(lines, (y, x)))
+            if numberOfNextPositions > 2:
+                intersections.append((y, x))
+    return intersections
+
+def getPaths(lines):
+    intersections = getIntersections(lines)
     paths = []
-    for intersection in map(lambda x: x[0], intersections):
-        for startPosition in getNextPositions(lines, intersection):
-            path = list(tracePath(lines, startPosition, previous = intersection))
-            pathEnd = path[-1]
-            pathLength = len(path)
-            if (pathEnd, intersection) not in map(lambda p: p[0], paths):
-                paths.append(((intersection, pathEnd), pathLength, path))
+    for intersection in intersections:
+        for start in getNextPositions(lines, intersection):
+            pathTrace = list(tracePath(lines, start, previous = intersection))
+            end = pathTrace[-1]
+            newPath = Path(intersection, end, len(pathTrace))
+            if newPath not in paths:
+                paths.append(newPath)
+
     return paths
 
-def findPathsThatBeginWith(paths, startPosition):
-    return list(filter(lambda path: path[0][0] == startPosition or path[0][1] == startPosition, paths))
+def findPaths(paths, position):
+    yield from filter(lambda x: x.p1 == position or x.p2 == position, paths)
 
-def doPathsIntersect(path1, path2):
-    return any(p in path2[2] for p in path1[2])
+class Path:
+    def __init__(self, p1, p2, length):
+        self.p1 = p1
+        self.p2 = p2
+        self.length = length
 
-def solve(paths, startPosition, endPosition, previousScore = 0, usedPaths = []):
+    def __eq__(self, other):
+        assert type(other) == Path
+        return other.p1 == self.p1 and other.p2 == self.p2 or other.p1 == self.p2 and other.p2 == self.p1
+
+    def __repr__(self):
+        return f'({self.p1}, {self.p2}, {self.length})'
+
+    def destinationPosition(self, start):
+        assert self.p1 == start or self.p2 == start
+        return self.p1 if self.p2 == start else self.p2
+
+
+def solve3impl(paths, startPosition, endPosition, visitedIntersections = []):
+    breakpoint()
     if startPosition == endPosition:
-        return previousScore
-    usedPaths = usedPaths[:]
-    foundPaths = list(filter(lambda x: x[0] not in usedPaths, findPathsThatBeginWith(paths, startPosition)))
+        return 0
 
-    params = []
-    # breakpoint()
-    for path in foundPaths:
-        newStartPosition = path[0][1] if path[0][0] == startPosition else path[0][0]
-        newUsedPaths = usedPaths + [path[0]]
-        params.append((newStartPosition, newUsedPaths, previousScore + path[1]))
+    currentPosition = startPosition
+    paths = list(findPaths(paths, currentPosition))
 
-    results = list(solve(paths, sp, endPosition, previousScore = ps, usedPaths = up) for sp, up, ps in params)    
-    return max([0, *results])
+    solutions = []
+    for path in filter(lambda p: p.destinationPosition(currentPosition) not in visitedIntersections, paths):
+        newStartPosition = path.destinationPosition(currentPosition)
+        solutions.append(path.length + solve3impl(paths, newStartPosition, endPosition, visitedIntersections = visitedIntersections + [newStartPosition]))
+    return max([0, *solutions])
+
+def solve3(lines, startPosition, endPosition):
+    paths = getPaths(lines)    
+    return solve3impl(paths, startPosition, endPosition)
 
 def main():
     lines = file.readlines()
@@ -163,13 +254,7 @@ def main():
     startPosition = getStartPosition(lines)
     endPosition = getEndPosition(lines)
 
-    allIntersections = findIntersections(lines)
-    pathsBetweenIntersections = tracePathsBetweenIntersections(lines, allIntersections)
-
-    # print(len(pathsBetweenIntersections))
-    # print(pathsBetweenIntersections)
-
-    solution = solve(pathsBetweenIntersections, startPosition, endPosition)
+    solution = solve3(lines, startPosition, endPosition)
     print(solution)
 
 if __name__ == '__main__':
