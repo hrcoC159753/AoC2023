@@ -226,19 +226,25 @@ class Path:
         return self.p1 if self.p2 == start else self.p2
 
 
-def solve3impl(paths, startPosition, endPosition, visitedIntersections = []):
-    breakpoint()
-    if startPosition == endPosition:
-        return 0
+def solve3impl(paths, startPosition, endPosition):
+    
+    needToVisit = [(0, startPosition)]
+    visited = []
 
-    currentPosition = startPosition
-    paths = list(findPaths(paths, currentPosition))
+    while len(needToVisit) > 0:
+        currentCost, currentPosition = needToVisit.pop()
+        for cost, intersection in map(lambda p: (p.length + currentCost, p.destinationPosition(currentPosition)), findPaths(paths, currentPosition)):
+            if intersection == endPosition:
+                return cost
+            index = next((i for i, e in enumerate(needToVisit) if e[1] == intersection), None)
+            if index != None:
+                oldIntersection = needToVisit.pop(index)
+                if oldIntersection[0] < cost:
+                    bisect.insort(needToVisit, (cost, intersection), key = lambda x: x[0])
+            else:
+                bisect.insort(needToVisit, (cost, intersection), key = lambda x: x[0])
 
-    solutions = []
-    for path in filter(lambda p: p.destinationPosition(currentPosition) not in visitedIntersections, paths):
-        newStartPosition = path.destinationPosition(currentPosition)
-        solutions.append(path.length + solve3impl(paths, newStartPosition, endPosition, visitedIntersections = visitedIntersections + [newStartPosition]))
-    return max([0, *solutions])
+    return -1
 
 def solve3(lines, startPosition, endPosition):
     paths = getPaths(lines)    
