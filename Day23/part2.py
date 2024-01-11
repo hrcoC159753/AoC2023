@@ -4,7 +4,7 @@ from enum import Enum
 import bisect
 
 file = sys.stdin
-file = open('input1.txt')
+file = open('Day23/input1.txt')
 
 def showPath(lines, path):
     for y in range(len(lines)):
@@ -225,26 +225,11 @@ class Path:
         assert self.p1 == start or self.p2 == start
         return self.p1 if self.p2 == start else self.p2
 
-
-def solve3impl(paths, startPosition, endPosition):
-    
-    needToVisit = [(0, startPosition)]
-    visited = []
-
-    while len(needToVisit) > 0:
-        currentCost, currentPosition = needToVisit.pop()
-        for cost, intersection in map(lambda p: (p.length + currentCost, p.destinationPosition(currentPosition)), findPaths(paths, currentPosition)):
-            if intersection == endPosition:
-                return cost
-            index = next((i for i, e in enumerate(needToVisit) if e[1] == intersection), None)
-            if index != None:
-                oldIntersection = needToVisit.pop(index)
-                if oldIntersection[0] < cost:
-                    bisect.insort(needToVisit, (cost, intersection), key = lambda x: x[0])
-            else:
-                bisect.insort(needToVisit, (cost, intersection), key = lambda x: x[0])
-
-    return -1
+def solve3impl(paths, currentPosition, endPosition, visitedIntersections = set()):
+    if currentPosition == endPosition:
+        return 0
+    solutions = map(lambda x: x[0] + solve3impl(paths, x[1], endPosition, visitedIntersections = visitedIntersections.union({currentPosition})), filter(lambda p: p[1] not in visitedIntersections, map(lambda p: (p.length, p.destinationPosition(currentPosition)), findPaths(paths, currentPosition))))
+    return max([-sys.maxsize - 1, *solutions])
 
 def solve3(lines, startPosition, endPosition):
     paths = getPaths(lines)    
